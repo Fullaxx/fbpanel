@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  package:
+    name: Package ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fullaxx/fbpanel_builder:${{ matrix.distro }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - noble
+          - jammy
+          - focal
+          - trixie
+          - bookworm
+          - bullseye
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib
+
+      - name: Build
+        run: make -C build -j$(nproc)
+
+      - name: Package
+        run: cd build && cpack -G DEB
+
+      - name: Rename with distro suffix
+        run: |
+          cd build
+          DEB=$(ls *.deb | head -1)
+          BASE="${DEB%.deb}"
+          mv "$DEB" "${BASE}_${{ matrix.distro }}.deb"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.distro }}
+          path: build/*.deb
+
+  release:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          merge-multiple: true
+
+      - name: Create Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.deb"
+          generate_release_notes: true
