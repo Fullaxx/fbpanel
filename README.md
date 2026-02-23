@@ -113,3 +113,4 @@ Bug reports and pull requests are welcome.
 - [aanatoly/fbpanel](https://github.com/aanatoly/fbpanel) — original repository by the project's author
 - [eleksir/fbpanel](https://github.com/eleksir/fbpanel) — GTK2 fork that carried the project through v7.2
 - [fbpanel/fbpanel](https://github.com/fbpanel/fbpanel) — another independent GTK2 maintenance fork
+- [berte/fbpanel3](https://github.com/berte/fbpanel3) — GTK3 port of fbpanel
