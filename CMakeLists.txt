@@ -180,10 +180,25 @@ else()
       "Lightweight GTK2 panel for the Linux desktop")
 endif()
 
+# Default generator for local use; CI overrides with: cpack -G DEB  or  cpack -G RPM
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_CONTACT "Brett Kuskie <fullaxx@gmail.com>")
+
+# --- Debian / Ubuntu packaging ---
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Brett Kuskie <fullaxx@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "x11")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+
+# --- RPM packaging (Fedora / RHEL / etc.) ---
+set(CPACK_RPM_PACKAGE_LICENSE   "GPL-2.0+")
+set(CPACK_RPM_PACKAGE_GROUP     "User Interface/X")
+set(CPACK_RPM_PACKAGE_URL       "https://github.com/Fullaxx/fbpanel")
+set(CPACK_RPM_PACKAGE_AUTOREQ   ON)
+set(CPACK_RPM_FILE_NAME         "RPM-DEFAULT")
+set(CPACK_RPM_PACKAGE_DESCRIPTION
+    "fbpanel is a lightweight GTK2 desktop panel for the Linux desktop.\n"
+    "It supports a plugin-based architecture with applets for taskbar,\n"
+    "system tray, clock, battery, CPU, memory, network monitors, and more.")
+
 include(CPack)

@@ -16,20 +16,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro:
-          - noble
-          - jammy
-          - focal
-          - trixie
-          - bookworm
-          - bullseye
+        include:
+          - distro: noble
+            libdir: lib
+          - distro: jammy
+            libdir: lib
+          - distro: focal
+            libdir: lib
+          - distro: trixie
+            libdir: lib
+          - distro: bookworm
+            libdir: lib
+          - distro: bullseye
+            libdir: lib
+          - distro: fedora43
+            libdir: lib64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib
+        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=${{ matrix.libdir }}
 
       - name: Build
         run: make -C build -j$(nproc)

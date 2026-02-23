@@ -15,39 +15,61 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro:
-          - noble
-          - jammy
-          - focal
-          - trixie
-          - bookworm
-          - bullseye
+        include:
+          - distro: noble
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
+          - distro: jammy
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
+          - distro: focal
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
+          - distro: trixie
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
+          - distro: bookworm
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
+          - distro: bullseye
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
+          - distro: fedora43
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib
+        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=${{ matrix.libdir }}
 
       - name: Build
         run: make -C build -j$(nproc)
 
       - name: Package
-        run: cd build && cpack -G DEB
+        run: cd build && cpack -G ${{ matrix.pkg_gen }}
 
       - name: Rename with distro suffix
         run: |
           cd build
-          DEB=$(ls *.deb | head -1)
-          BASE="${DEB%.deb}"
-          mv "$DEB" "${BASE}_${{ matrix.distro }}.deb"
+          PKG=$(ls *.${{ matrix.pkg_ext }} | head -1)
+          BASE="${PKG%.${{ matrix.pkg_ext }}}"
+          mv "$PKG" "${BASE}_${{ matrix.distro }}.${{ matrix.pkg_ext }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-${{ matrix.distro }}
-          path: build/*.deb
+          name: pkg-${{ matrix.distro }}
+          path: build/*.${{ matrix.pkg_ext }}
 
   release:
     name: Publish GitHub Release
@@ -60,11 +82,13 @@ jobs:
       - name: Download all packages
         uses: actions/download-artifact@v4
         with:
-          pattern: deb-*
+          pattern: pkg-*
           merge-multiple: true
 
       - name: Create Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
-          files: "*.deb"
+          files: |
+            *.deb
+            *.rpm
           generate_release_notes: true
