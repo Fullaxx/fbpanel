@@ -1,16 +1,26 @@
 cmake_minimum_required(VERSION 3.5)
 
-# Derive the package version from the current git tag (e.g. "v8.1.2" -> "8.1.2").
-# This means pushing a new vX.Y.Z tag is the only step needed to set the version
-# everywhere: the binary, config.h, the man page, and the CPack .deb filename.
-# Falls back to "0.0.0" when building outside a git repository (e.g. tarball).
-execute_process(
-  COMMAND git describe --tags --match "v*" --abbrev=0
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  OUTPUT_VARIABLE _GIT_TAG
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  ERROR_QUIET
-)
+# Derive the package version from the git tag so pushing a new vX.Y.Z tag is
+# the only step needed to update the version everywhere (binary, config.h,
+# man page, CPack .deb filename).
+#
+# Priority:
+#  1. GITHUB_REF_NAME env var  -- set by GitHub Actions on tag-push events
+#                                  (e.g. "v8.1.3"); reliable in shallow clones.
+#  2. `git describe`            -- works for local builds where full tag history
+#                                  is present.
+#  3. Fallback: "0.0.0"         -- building outside any git repo (tarball, etc.)
+if(DEFINED ENV{GITHUB_REF_NAME} AND "$ENV{GITHUB_REF_NAME}" MATCHES "^v[0-9]")
+  set(_GIT_TAG "$ENV{GITHUB_REF_NAME}")
+else()
+  execute_process(
+    COMMAND git describe --tags --match "v*" --abbrev=0
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_VARIABLE _GIT_TAG
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+endif()
 string(REGEX REPLACE "^v" "" FBPANEL_VERSION "${_GIT_TAG}")
 if(NOT FBPANEL_VERSION OR FBPANEL_VERSION STREQUAL "")
   set(FBPANEL_VERSION "0.0.0")
