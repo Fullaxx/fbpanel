@@ -346,48 +346,63 @@ When `update_view` has reset `m->cur_icon` to −1, the guard is `FALSE` and
 
 ---
 
-### BUG-017 — "All workspaces" menu item uses wrong signal, causing SIGSEGV
+### BUG-017 — All "Move to workspace" items broken; "All workspaces" crashes
 
-**File:** `plugins/taskbar/taskbar.c` — `tb_make_menu()`
-**Severity:** CRASH
+**File:** `plugins/taskbar/taskbar.c` — `send_to_workspace()`, `tb_make_menu()`
+**Severity:** CRASH ("All workspaces") + LOGIC ERROR (numbered items)
 **Status:** Fixed
 
-**Symptom:** Right-clicking a taskbar button, then selecting
-"Move to workspace → All workspaces" causes an immediate SIGSEGV.
+**Symptom observed:** Right-clicking a taskbar button → "Move to workspace →
+All workspaces" → immediate SIGSEGV.
 
-**Root cause:** The callback `send_to_workspace` is designed for the
-`button_press_event` signal, which passes three arguments to the handler:
-`(GtkWidget *widget, GdkEventButton *event, gpointer user_data)`.
-The function signature matches this exactly:
+**Symptom on numbered items:** Clicking "Move to workspace → Workspace N"
+does nothing — the window is not moved.
 
-```c
-static void send_to_workspace(GtkWidget *widget, void *iii, taskbar_priv *tb)
-```
+**Root cause — two related problems:**
 
-Every numbered workspace item in the submenu correctly connects to
-`"button_press_event"`.  However, the "All workspaces" item at the bottom of
-the same submenu connects to `"activate"` instead:
+**Problem 1 (numbered items): `button_press_event` never fires on GtkMenuItem.**
+GtkMenuItems inside a popup menu do not have their own `GdkWindow`; they are
+"no-window" widgets.  The GtkMenu grabs the pointer and handles all button
+events at the menu-window level internally, dispatching only `activate` to the
+selected item on button-release.  User handlers connected to
+`button_press_event` on a GtkMenuItem never fire.  Every numbered workspace
+item was silently broken — the `Xclimsg` call to move the window was never
+reached.
 
-```c
-/* BUG: activate only provides (widget, user_data) — two args, not three */
-g_signal_connect(mi, "activate", (GCallback)send_to_workspace, tb);
-```
+Additionally, `button_press_event` expects a `gboolean` return; the callback
+returns `void`.  After `Xclimsg` returns (typically 1), the undefined rax=1
+would be read by GTK as TRUE (event consumed), potentially preventing the menu
+from closing.
 
-The `"activate"` signal provides only `(widget, user_data)`.  With the
-SysV x86-64 ABI, this means:
+**Problem 2 ("All workspaces"): wrong callback arity for `activate`.**
+An attempt to use `"activate"` for the "All workspaces" item used the
+3-argument `send_to_workspace` callback.  The `activate` signal only provides
+`(widget, user_data)`.  With x86-64 SysV ABI:
 
-- `rdi` → `widget`  (menu item)
-- `rsi` → `tb`      (user_data, interpreted as the `void *iii` event slot)
+- `rdi` → widget
+- `rsi` → `tb`  (user_data, lands in the `void *iii` slot)
 - `rdx` → **garbage** (never set by GTK, read as the `taskbar_priv *tb` arg)
 
-`send_to_workspace` then calls `tb->menutask->win` where `tb` is the garbage
-value in `rdx` → SIGSEGV.
+`tb->menutask->win` then dereferences the garbage `rdx` register → SIGSEGV.
 
-**Fix applied:** Changed `"activate"` to `"button_press_event"` for the
-"All workspaces" item, consistent with every other item in the submenu:
+Note: the developer's comment `/* NOTE: uses button_press_event not activate
+— send_to_workspace gets 3 args */` shows awareness of the arity mismatch
+but not of the fact that `button_press_event` itself does not fire on
+windowless GtkMenuItems.
+
+**Fix applied:** Rewrote `send_to_workspace` as a proper 2-argument `activate`
+handler (matching `menu_raise_window` and `menu_iconify_window`), and switched
+all workspace submenu items — numbered and "All workspaces" — to `"activate"`:
 
 ```c
+/* Before (broken): 3-arg callback, button_press_event on windowless widget */
+static void send_to_workspace(GtkWidget *widget, void *iii, taskbar_priv *tb)
 g_signal_connect(G_OBJECT(mi), "button_press_event",
+    (GCallback)send_to_workspace, tb);
+
+/* After (correct): 2-arg activate handler, consistent with Raise/Iconify/Close */
+static void send_to_workspace(GtkWidget *widget, taskbar_priv *tb)
+g_signal_connect(G_OBJECT(mi), "activate",
     (GCallback)send_to_workspace, tb);
 ```
 
@@ -413,4 +428,4 @@ g_signal_connect(G_OBJECT(mi), "button_press_event",
 | BUG-014  | plugins/wincmd/wincmd.c       | DEAD CODE       | Fixed   | `pix`/`mask` fields never populated; dead destructor  |
 | BUG-015  | plugins/meter/meter.c         | LOGIC ERROR     | Fixed   | `update_view` always short-circuits; icons never reload on theme change |
 | BUG-016  | plugins/volume/volume.c       | CRASH           | Fixed   | `meter_destructor` not called on `/dev/mixer` failure → use-after-free |
-| BUG-017  | plugins/taskbar/taskbar.c     | CRASH           | Fixed   | "All workspaces" item connects `activate` instead of `button_press_event` → wrong signal arity → SIGSEGV |
+| BUG-017  | plugins/taskbar/taskbar.c     | CRASH + LOGIC   | Fixed   | All "Move to workspace" items broken: numbered items use button_press_event (never fires on windowless GtkMenuItems); "All workspaces" uses activate with 3-arg callback → SIGSEGV |

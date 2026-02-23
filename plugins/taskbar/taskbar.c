@@ -1546,13 +1546,18 @@ menu_iconify_window(GtkWidget *widget, taskbar_priv *tb)
 }
 
 /*
- * send_to_workspace -- "button_press_event" handler for workspace submenu items.
+ * send_to_workspace -- "activate" handler for workspace submenu items.
  *
- * Reads the "num" data from the menu item and sends _NET_WM_DESKTOP to
- * move menutask's window to that desktop.
+ * Reads the desktop index stored as "num" object data on the menu item
+ * and sends _NET_WM_DESKTOP to move menutask's window to that desktop.
+ * ALL_WORKSPACES (0xFFFFFFFF) makes the window sticky across all desktops.
+ *
+ * Parameters:
+ *   widget -- the activated menu item (carries "num" object data).
+ *   tb     -- taskbar_priv instance.
  */
 static void
-send_to_workspace(GtkWidget *widget, void *iii, taskbar_priv *tb)
+send_to_workspace(GtkWidget *widget, taskbar_priv *tb)
 {
     int dst_desktop;
 
@@ -1632,15 +1637,14 @@ tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
         mi = gtk_image_menu_item_new_with_label (buf);
         g_object_set_data(G_OBJECT(mi), "num", GINT_TO_POINTER(i));
         gtk_menu_shell_append (GTK_MENU_SHELL (submenu), mi);
-        /* NOTE: uses button_press_event not activate — send_to_workspace gets 3 args */
-        g_signal_connect(G_OBJECT(mi), "button_press_event",
+        g_signal_connect(G_OBJECT(mi), "activate",
             (GCallback)send_to_workspace, tb);
         g_free(buf);
     }
-    /* "All workspaces" sticky option */
+    /* "All workspaces" — sticky: _NET_WM_DESKTOP = 0xFFFFFFFF */
     mi = gtk_image_menu_item_new_with_label(_("All workspaces"));
     g_object_set_data(G_OBJECT(mi), "num", GINT_TO_POINTER(ALL_WORKSPACES));
-    g_signal_connect(G_OBJECT(mi), "button_press_event",
+    g_signal_connect(G_OBJECT(mi), "activate",
         (GCallback)send_to_workspace, tb);
     gtk_menu_shell_append (GTK_MENU_SHELL (submenu), mi);
     gtk_widget_show_all(submenu);
