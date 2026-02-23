@@ -52,6 +52,21 @@ Even with the above permissions, **always ask before**:
 - Any command that modifies shared infrastructure (CI secrets, org settings)
 - Dropping database tables or deleting persistent data
 
+### Analysis / testing utilities
+- `valgrind`, `callgrind`, `massif`, `cachegrind`
+- `scan-build`, `clang-tidy`, `clang-format`, `cppcheck`
+- `gdb`, `cgdb`, `lldb`
+- `addr2line`, `gprof`, `perf`
+- `splint`, `flawfinder`, `rats`
+
+## Build and compile policy
+
+**Compile locally at will — no confirmation needed.**
+Whenever making code changes, after fixing bugs, or to verify correctness,
+run a local build immediately without asking.  Use the full cmake reconfigure
++ make pipeline as needed.  Use any of the analysis/testing utilities above
+to validate results.  Proactively rebuild after every non-trivial edit.
+
 ## Project conventions
 
 - CMake build directory: `build/`
