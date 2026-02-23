@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimised release build — stripped binaries, no debug symbols (default).",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "/usr"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Unoptimised debug build (-O0 -g3 -Wall -Wextra). Packages as fbpanel-dbg.",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "/usr"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "RelWithDebInfo",
+      "description": "Optimised build with full debug symbols (-O2 -g3). Packages as fbpanel-dbgsym.",
+      "binaryDir": "${sourceDir}/build-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "/usr"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "RelWithDebInfo",
+      "configurePreset": "relwithdebinfo"
+    }
+  ]
+}

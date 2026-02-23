@@ -30,6 +30,38 @@ project(fbpanel VERSION ${FBPANEL_VERSION} LANGUAGES C)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_COLOR_MAKEFILE OFF)
 
+# ---------------------------------------------------------------------------
+# Build type
+# ---------------------------------------------------------------------------
+# Default to Release when the caller has not specified a build type.
+# Accepted values: Release  Debug  RelWithDebInfo  MinSizeRel
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+      "Build type (Release Debug RelWithDebInfo MinSizeRel)" FORCE)
+endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+# Improve the compiler flags for Debug and RelWithDebInfo over CMake's
+# minimal built-in defaults ("-g" and "-O2 -g -DNDEBUG" respectively).
+# These are only applied when the variable still holds CMake's factory
+# default value, so an explicit -DCMAKE_C_FLAGS_DEBUG="..." is honoured.
+if(CMAKE_C_FLAGS_DEBUG STREQUAL "-g")
+  set(CMAKE_C_FLAGS_DEBUG "-O0 -g3 -Wall -Wextra" CACHE STRING
+      "C compiler flags for Debug builds" FORCE)
+endif()
+if(CMAKE_C_FLAGS_RELWITHDEBINFO STREQUAL "-O2 -g -DNDEBUG")
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g3 -DNDEBUG" CACHE STRING
+      "C compiler flags for RelWithDebInfo builds" FORCE)
+endif()
+
+# Strip installed binaries for Release/MinSizeRel; keep symbols for
+# Debug and RelWithDebInfo so the installed package is debuggable.
+if(CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
+  set(CMAKE_INSTALL_DO_STRIP FALSE)
+else()
+  set(CMAKE_INSTALL_DO_STRIP TRUE)
+endif()
+
 include(GNUInstallDirs)
 find_package(X11 REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -112,10 +144,44 @@ install(FILES "${PROJECT_SOURCE_DIR}/po/fr_FR.UTF-8.mo" DESTINATION "${CMAKE_INS
 install(FILES "${PROJECT_SOURCE_DIR}/po/ru_RU.UTF-8.mo" DESTINATION "${CMAKE_INSTALL_FULL_DATADIR}/locale/ru/LC_MESSAGES" RENAME "${PROJECT_NAME}.mo")
 install(FILES "${PROJECT_SOURCE_DIR}/po/it_IT.UTF-8.mo" DESTINATION "${CMAKE_INSTALL_FULL_DATADIR}/locale/it/LC_MESSAGES" RENAME "${PROJECT_NAME}.mo")
 
-# --- CPack (Debian packaging) ---
+# ---------------------------------------------------------------------------
+# CPack — Debian packaging
+# ---------------------------------------------------------------------------
+# The package name carries a suffix for non-Release builds so that debug
+# packages are recognised as distinct by dpkg and can co-exist with (or
+# replace) the release package without confusing the package manager:
+#
+#   Release / MinSizeRel  →  fbpanel_<ver>_<arch>.deb
+#   Debug                 →  fbpanel-dbg_<ver>_<arch>.deb
+#   RelWithDebInfo        →  fbpanel-dbgsym_<ver>_<arch>.deb
+#
+# Build a debug .deb:
+#   cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr
+#   make -C build-debug -j$(nproc)
+#   cd build-debug && cpack -G DEB
+#
+# Build a RelWithDebInfo .deb:
+#   cmake -B build-rwdi -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr
+#   make -C build-rwdi -j$(nproc)
+#   cd build-rwdi && cpack -G DEB
+
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _BUILD_TYPE_UPPER)
+if(_BUILD_TYPE_UPPER STREQUAL "DEBUG")
+  set(CPACK_PACKAGE_NAME "${PROJECT_NAME}-dbg")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+      "Lightweight GTK2 panel for the Linux desktop (debug build, -O0 -g3)")
+elseif(_BUILD_TYPE_UPPER STREQUAL "RELWITHDEBINFO")
+  set(CPACK_PACKAGE_NAME "${PROJECT_NAME}-dbgsym")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+      "Lightweight GTK2 panel for the Linux desktop (optimised with debug symbols)")
+else()
+  set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+      "Lightweight GTK2 panel for the Linux desktop")
+endif()
+
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_CONTACT "Brett Kuskie <fullaxx@gmail.com>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Lightweight GTK2 panel for the Linux desktop")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Brett Kuskie <fullaxx@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "x11")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)

@@ -2,24 +2,70 @@
 
 ---
 
-## Debug build
+## Build types and debug flags
 
-Build with debug symbols and assertions enabled:
+fbpanel's CMake build system defaults to `Release` (`-O2 -DNDEBUG`, stripped
+on install).  Two non-release types are useful for debugging:
 
-```bash
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_C_FLAGS="-O0 -g3 -Wall -Wextra"
-make -C build -j$(nproc)
-```
+| Build type        | Flags              | Symbols | Use case                          |
+|-------------------|--------------------|---------|-----------------------------------|
+| `Debug`           | `-O0 -g3 -Wall -Wextra` | full | GDB, ASAN, Valgrind          |
+| `RelWithDebInfo`  | `-O2 -g3 -DNDEBUG` | full    | Profiling, crash-report analysis  |
 
-For a RelWithDebInfo build (optimised but with symbols — useful for
-profiling and stack traces in production):
+### Debug build (recommended for GDB / ASAN)
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -B build-debug \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DCMAKE_INSTALL_PREFIX=/usr
+make -C build-debug -j$(nproc)
 ```
+
+Or using a CMake preset (requires CMake ≥ 3.20):
+
+```bash
+cmake --preset debug
+cmake --build --preset debug
+```
+
+### RelWithDebInfo build (optimised with symbols)
+
+```bash
+cmake -B build-relwithdebinfo \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DCMAKE_INSTALL_PREFIX=/usr
+make -C build-relwithdebinfo -j$(nproc)
+```
+
+Or via preset:
+
+```bash
+cmake --preset relwithdebinfo
+cmake --build --preset relwithdebinfo
+```
+
+---
+
+## Packaging a debug .deb
+
+The build type is baked into the package name so debug packages don't
+conflict with a release installation:
+
+```bash
+# Debug package (fbpanel-dbg_<ver>_<arch>.deb)
+cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr
+make -C build-debug -j$(nproc)
+cd build-debug && cpack -G DEB
+sudo dpkg -i fbpanel-dbg_*.deb
+
+# RelWithDebInfo package (fbpanel-dbgsym_<ver>_<arch>.deb)
+cmake -B build-rwdi -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr
+make -C build-rwdi -j$(nproc)
+cd build-rwdi && cpack -G DEB
+sudo dpkg -i fbpanel-dbgsym_*.deb
+```
+
+See [INSTALL.md](../INSTALL.md) for a full packaging reference.
 
 ---
 
