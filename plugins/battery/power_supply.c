@@ -431,7 +431,7 @@ bat_parse(bat* bat)
  * Returns: Newly heap-allocated power_supply*. Never NULL (g_new aborts on OOM).
  *
  * Memory: Caller owns the returned pointer; must call power_supply_free() to
- *   release it and all contained ac*/bat* elements.
+ *   release it and all contained ac* and bat* elements.
  */
 extern power_supply*
 power_supply_new() {
@@ -483,7 +483,7 @@ power_supply_free(gpointer p) {
  *
  * Memory:
  *   - Temporary GString for path construction is freed before returning.
- *   - Each ac*/bat* is heap-allocated and transferred to the GSequence.
+ *   - Each ac* and bat* entry is heap-allocated and transferred to the GSequence.
  *   - The "contents" buffer from g_file_get_contents() is freed after each use.
  *
  * NOTE: The public header declares power_supply_parse() with no parameters,
