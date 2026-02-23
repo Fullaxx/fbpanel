@@ -1,5 +1,22 @@
 cmake_minimum_required(VERSION 3.5)
-project(fbpanel VERSION 8.0.0 LANGUAGES C)
+
+# Derive the package version from the current git tag (e.g. "v8.1.2" -> "8.1.2").
+# This means pushing a new vX.Y.Z tag is the only step needed to set the version
+# everywhere: the binary, config.h, the man page, and the CPack .deb filename.
+# Falls back to "0.0.0" when building outside a git repository (e.g. tarball).
+execute_process(
+  COMMAND git describe --tags --match "v*" --abbrev=0
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  OUTPUT_VARIABLE _GIT_TAG
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
+)
+string(REGEX REPLACE "^v" "" FBPANEL_VERSION "${_GIT_TAG}")
+if(NOT FBPANEL_VERSION OR FBPANEL_VERSION STREQUAL "")
+  set(FBPANEL_VERSION "0.0.0")
+endif()
+
+project(fbpanel VERSION ${FBPANEL_VERSION} LANGUAGES C)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_COLOR_MAKEFILE OFF)
 
