@@ -93,8 +93,14 @@ meter_set_level(meter_priv *m, int level)
     GdkPixbuf *pb;
 
     ENTER;
-    /* Early exit if the level is unchanged. */
-    if (m->level == level)
+    /* Early exit if the level is unchanged AND the icon cache is still valid.
+     * The cur_icon == -1 guard is essential: update_view() resets cur_icon to
+     * -1 to force a reload after an icon-theme change.  Without this guard the
+     * comparison "m->level == level" would always be TRUE (m->level is stored
+     * as an exact-integer gfloat and level is an int, so the int-to-float
+     * promotion always matches), causing update_view() to short-circuit and
+     * never actually refresh the icon. */
+    if (m->level == level && m->cur_icon != -1)
         RET();
     /* Early exit if no icons have been registered. */
     if (!m->num)

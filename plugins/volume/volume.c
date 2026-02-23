@@ -459,9 +459,17 @@ volume_constructor(plugin_instance *p)
 
     /* Open the OSS mixer device.  Soft-fail if not available (e.g. on
      * systems without OSS/ALSA, inside containers, or VMs with no audio).
-     * The panel continues running; only this plugin is skipped.           */
+     * The panel continues running; only this plugin is skipped.
+     *
+     * IMPORTANT: meter_constructor() has already run and connected update_view
+     * to the global icon_theme "changed" signal (with `m` as the swapped user
+     * data).  If we return 0 here without calling meter_destructor(), that
+     * signal handler remains connected after plugin_put() frees the struct,
+     * causing a use-after-free when the icon theme is next scanned (BUG-016). */
     if ((c->fd = open ("/dev/mixer", O_RDWR, 0)) < 0) {
         g_message("volume: /dev/mixer not available — plugin disabled");
+        PLUGIN_CLASS(k)->destructor(p); /* disconnect icon_theme signal       */
+        class_put("meter");             /* balance class_get() above           */
         RET(0);
     }
 

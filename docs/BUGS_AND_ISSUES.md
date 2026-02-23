@@ -1,7 +1,7 @@
 # Bugs and Issues
 
 This file documents bugs and code issues found during the inline-comment review
-of the fbpanel source tree.  All 14 tracked bugs have been fixed.
+of the fbpanel source tree.  All 16 tracked bugs have been fixed.
 
 Severity levels used below:
 - **CRASH** – can cause a segfault, use-after-free, or other process-terminating fault
@@ -262,6 +262,90 @@ simplified `wincmd_destructor` to a no-op body.
 
 ---
 
+## plugins/volume/volume.c
+
+### BUG-016 — `meter_destructor` not called when `volume_constructor` fails after `meter_constructor`
+
+**Severity:** CRASH (use-after-free / SIGSEGV)
+**Status:** Fixed
+
+`volume_constructor` calls `PLUGIN_CLASS(k)->constructor(p)` (i.e. `meter_constructor`)
+which creates the GtkImage widget and connects `update_view` to the global
+`icon_theme "changed"` signal with `m` (a pointer to the `meter_priv` embedded
+in the `volume_priv` allocation) as the swapped user-data argument.
+
+If `open("/dev/mixer")` subsequently fails, `volume_constructor` returned 0 without
+calling `meter_destructor()`.  The framework then:
+
+1. Calls `gtk_widget_destroy(pwid)` — destroying `m->meter` (the GtkImage).
+2. Calls `plugin_put(plug)` → `g_free(plug)` — **freeing the entire struct**.
+
+The `icon_theme "changed"` signal handler remains connected, pointing to the
+now-freed struct.  When the GTK icon-theme subsystem later emits "changed" (e.g.
+during the first icon lookup at startup), `update_view(m)` is invoked with a
+dangling pointer.  Reading garbage from the freed memory produces the observed
+crash sequence:
+
+```
+meter: illegal level -1
+(fbpanel): Gtk-CRITICAL: IA__gtk_icon_theme_load_icon: assertion 'icon_name != NULL' failed
+Segmentation fault (core dumped)
+```
+
+The SIGSEGV at `si_addr=0x20` is consistent with `g_type_check_instance_cast`
+dereferencing a stale `m->meter` pointer (the GLib type-check reads
+`instance->g_class` and then `g_class->g_type`; a freed / zeroed pointer at
+that location gives address 0x20).
+
+**Fix applied:** In the `/dev/mixer` failure path, call
+`PLUGIN_CLASS(k)->destructor(p)` (which disconnects the signal) and
+`class_put("meter")` before returning 0.
+
+---
+
+## plugins/meter/meter.c
+
+### BUG-015 — `update_view` always short-circuits; icons never reload on theme change
+
+**Severity:** LOGIC ERROR (icon not refreshed when GTK icon theme changes)
+**Status:** Fixed
+
+`update_view` is supposed to force a reload of the current icon after a GTK
+icon-theme change:
+
+```c
+static void update_view(meter_priv *m) {
+    m->cur_icon = -1;                    /* invalidate cached index */
+    meter_set_level(m, m->level);        /* should reload icon      */
+}
+```
+
+However, `meter_set_level` contains:
+
+```c
+if (m->level == level)   /* gfloat == int */
+    RET();
+```
+
+`m->level` is a `gfloat` always holding an exact-integer value (0, -1, or a
+level 0..100 previously stored via `m->level = level`).  When `update_view`
+passes `m->level` as the `int level` argument, the C implicit float→int
+conversion produces the same integer value, and the subsequent int→float
+promotion for the comparison makes `m->level == level` always `TRUE`.  The
+function returns immediately, never reaching the icon-load code.
+
+**Fix applied:** Added `&& m->cur_icon != -1` to the early-exit condition:
+
+```c
+if (m->level == level && m->cur_icon != -1)
+    RET();
+```
+
+When `update_view` has reset `m->cur_icon` to −1, the guard is `FALSE` and
+`meter_set_level` proceeds to reload the icon from the new theme.
+
+---
+
 ## Summary Table
 
 | ID       | File                          | Severity        | Status  | Description                                           |
@@ -280,3 +364,5 @@ simplified `wincmd_destructor` to a no-op body.
 | BUG-012  | plugins/wincmd/wincmd.c       | MINOR           | Fixed   | Button1/Button2 config values parsed but ignored      |
 | BUG-013  | plugins/wincmd/wincmd.c       | DEAD CODE       | Fixed   | `action1` field declared but never used               |
 | BUG-014  | plugins/wincmd/wincmd.c       | DEAD CODE       | Fixed   | `pix`/`mask` fields never populated; dead destructor  |
+| BUG-015  | plugins/meter/meter.c         | LOGIC ERROR     | Fixed   | `update_view` always short-circuits; icons never reload on theme change |
+| BUG-016  | plugins/volume/volume.c       | CRASH           | Fixed   | `meter_destructor` not called on `/dev/mixer` failure → use-after-free |
