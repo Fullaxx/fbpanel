@@ -13,7 +13,8 @@ environment dependency.
 
 ## History
 
-fbpanel was originally written by Anatoly Asviyan (aanatoly).  When
+fbpanel was originally written by Anatoly Asviyan
+([aanatoly](https://github.com/aanatoly/fbpanel)).  When
 development stalled and the project was abandoned,
 [eleksir](https://github.com/eleksir/fbpanel) picked it up (~2020) and made
 substantial improvements: migrated the build from the old Python 2 autotools
@@ -106,3 +107,9 @@ sudo make -C build install
 ## Contributing
 
 Bug reports and pull requests are welcome.
+
+## Related projects
+
+- [aanatoly/fbpanel](https://github.com/aanatoly/fbpanel) — original repository by the project's author
+- [eleksir/fbpanel](https://github.com/eleksir/fbpanel) — GTK2 fork that carried the project through v7.2
+- [fbpanel/fbpanel](https://github.com/fbpanel/fbpanel) — another independent GTK2 maintenance fork
