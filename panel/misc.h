@@ -34,7 +34,7 @@ gchar *expand_tilda(gchar *file);
 void menu_pos(GtkMenu *menu, gint *x, gint *y, gboolean *push_in, GtkWidget *widget);
 
 /* GTK config dialog launcher */
-void configure();
+void configure(xconf *xc);
 
 /* Config file indentation helper */
 gchar *indent(int level);

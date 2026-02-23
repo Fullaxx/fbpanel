@@ -141,7 +141,7 @@ void power_supply_free(gpointer p);
  *       parameters, but the implementation takes a power_supply* argument.
  *       This is a header/implementation mismatch -- see BUGS section.
  */
-power_supply* power_supply_parse();
+power_supply* power_supply_parse(power_supply *ps);
 
 /*
  * power_supply_is_ac_online -- test whether any AC adapter is supplying power.
