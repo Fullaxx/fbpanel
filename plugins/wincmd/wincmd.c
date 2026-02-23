@@ -4,10 +4,6 @@
  * Provides a single button that, when clicked, either iconifies or shades
  * all windows on the current virtual desktop (configurable via xconf).
  *
- * Default behaviour (matching the historical fbpanel "show desktop" key):
- *   Left-click   (button 1): toggle iconify all windows on current desktop
- *   Middle-click (button 2): toggle shade   all windows on current desktop
- *
  * Configuration keys:
  *   Button1  - action for left button:   "none" | "iconify" | "shade"
  *   Button2  - action for middle button: "none" | "iconify" | "shade"
@@ -15,13 +11,8 @@
  *   Image    - image file path (used if Icon is not set)
  *   tooltip  - tooltip markup string
  *
- * NOTE: Button1/Button2 config values are parsed and stored but the
- *       clicked() handler currently ignores them, hardcoding LMB→iconify
- *       and MMB→shade toggle.  action1 is also declared but never used.
- *
- * NOTE: pix and mask fields are declared in wincmd_priv and referenced in
- *       the destructor, but they are never populated in the constructor.
- *       Those destructor branches are always dead code.
+ * Default behaviour:
+ *   Button1 = iconify, Button2 = shade
  */
 
 #include <stdlib.h>
@@ -40,19 +31,15 @@
  * wincmd_priv -- per-instance private state for the wincmd plugin.
  *
  * plugin  - embedded base class (MUST be first member for cast compatibility)
- * pix     - GdkPixmap for the button icon (allocated but never set; always NULL)
- * mask    - GdkBitmap mask for transparency (same; always NULL)
  * button1 - xconf-configured action for left button (WC_ICONIFY default)
  * button2 - xconf-configured action for middle button (WC_SHADE default)
- * action1 - runtime shade-direction toggle for button1 (never used)
+ * action1 - runtime shade-direction toggle for button1 (0=remove, 1=add)
  * action2 - runtime shade-direction toggle for button2 (0=remove, 1=add)
  */
 typedef struct {
     plugin_instance plugin;    /* base class -- MUST be first */
-    GdkPixmap *pix;            /* never set; always NULL      */
-    GdkBitmap *mask;           /* never set; always NULL      */
     int button1, button2;
-    int action1, action2;      /* action1 is never used       */
+    int action1, action2;
 } wincmd_priv;
 
 /*
@@ -230,19 +217,30 @@ end:
 }
 
 /*
+ * do_action -- execute a WC_* action, toggling shade state as needed.
+ */
+static void
+do_action(wincmd_priv *wc, int action, int *action_toggle)
+{
+    switch (action) {
+    case WC_ICONIFY:
+        toggle_iconify(wc);
+        break;
+    case WC_SHADE:
+        *action_toggle = 1 - *action_toggle;
+        toggle_shaded(wc, *action_toggle);
+        break;
+    case WC_NONE:
+    default:
+        break;
+    }
+}
+
+/*
  * clicked -- button-press-event handler for the wincmd button.
  *
- * Only GDK_BUTTON_PRESS events are handled; release events are ignored.
- *
- *   button 1 (left):   toggle_iconify() on the current desktop.
- *   button 2 (middle): toggle wc->action2 (0→1→0) and call toggle_shaded()
- *                      with the new value.  First middle-click shades,
- *                      second unshades, and so on.
- *   other:             no-op, returns FALSE.
- *
- * Note: the Button1/Button2 xconf values (wc->button1/wc->button2) are
- *       parsed in the constructor but NOT used here.  The clicked() handler
- *       hardcodes the LMB→iconify and MMB→shade actions.
+ * Dispatches to do_action() based on wc->button1 / wc->button2 so that
+ * the xconf Button1/Button2 config values are honoured.
  */
 static gint
 clicked (GtkWidget *widget, GdkEventButton *event, gpointer data)
@@ -250,20 +248,15 @@ clicked (GtkWidget *widget, GdkEventButton *event, gpointer data)
     wincmd_priv *wc = (wincmd_priv *) data;
 
     ENTER;
-    /* Only handle button-press; ignore button-release.                    */
     if (event->type != GDK_BUTTON_PRESS)
         RET(FALSE);
 
-    if (event->button == 1) {
-        toggle_iconify(wc);
-    } else if (event->button == 2) {
-        /* Toggle shade direction: 0 = remove shade, 1 = add shade.       */
-        wc->action2 = 1 - wc->action2;
-        toggle_shaded(wc, wc->action2);
-        DBG("wincmd: shade all\n");
-    } else {
-        DBG("wincmd: unsupported command\n");
-    }
+    if (event->button == 1)
+        do_action(wc, wc->button1, &wc->action1);
+    else if (event->button == 2)
+        do_action(wc, wc->button2, &wc->action2);
+    else
+        DBG("wincmd: unsupported button %d\n", event->button);
 
     RET(FALSE);
 }
@@ -271,21 +264,14 @@ clicked (GtkWidget *widget, GdkEventButton *event, gpointer data)
 /*
  * wincmd_destructor -- release wincmd-specific resources.
  *
- * Frees pix and mask GObjects if non-NULL.  In practice both are always
- * NULL because the constructor never populates them; these branches are
- * dead code.
+ * Nothing to free: all widgets are children of p->pwid and are
+ * destroyed automatically by the plugin framework.
  */
 static void
 wincmd_destructor(plugin_instance *p)
 {
-    wincmd_priv *wc = (wincmd_priv *)p;
-
     ENTER;
-    /* pix and mask are never set in constructor; these are always NULL.   */
-    if (wc->mask)
-        g_object_unref(wc->mask);
-    if (wc->pix)
-        g_object_unref(wc->pix);
+    (void)p;
     RET();
 }
 
@@ -323,8 +309,8 @@ wincmd_constructor(plugin_instance *p)
     wc->button1 = WC_ICONIFY;
     wc->button2 = WC_SHADE;
 
-    /* Parse configuration.  button1/button2 are stored but clicked()
-     * does not actually read them (see NOTE in file header).              */
+    /* Parse configuration.  button1/button2 are dispatched by clicked()
+     * via do_action().                                                     */
     XCG(p->xc, "Button1", &wc->button1, enum, wincmd_enum);
     XCG(p->xc, "Button2", &wc->button2, enum, wincmd_enum);
     XCG(p->xc, "Icon",    &iname,        str);   /* non-owning pointer    */

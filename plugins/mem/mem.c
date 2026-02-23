@@ -14,16 +14,14 @@
  * Widget hierarchy:
  *   p->pwid → mem->box (panel's my_box_new) → mem_pb [+ swap_pb]
  *
- * Known bugs:
- *   BUG: mem_destructor calls gtk_widget_destroy(mem->box), but box is a
- *     child of p->pwid which is destroyed by the panel framework after the
- *     destructor returns → double-destroy of mem->box.  In GTK2 this is
- *     generally harmless but is still incorrect.
- *   BUG: mem_usage() (non-Linux stub) is defined with no parameters but is
- *     called without arguments only; consistent with the stub.  However
- *     the Linux version is also defined as mem_usage() — the mem2.c version
- *     takes a mem2_priv* parameter for the chart, creating a naming
- *     conflict if both plugins were ever linked together.
+ * Fixed bugs:
+ *   Fixed (BUG-004): Removed explicit gtk_widget_destroy(mem->box) from
+ *     mem_destructor.  The panel framework destroys p->pwid (and thus
+ *     mem->box) automatically.
+ *
+ * Note: mem_usage() shares its name with a similarly-named function in
+ *   mem2.c, but both are compiled into separate shared libraries so there
+ *   is no link-time conflict in practice.
  */
 
 #include <time.h>
@@ -240,10 +238,8 @@ mem_update(mem_priv *mem)
 /*
  * mem_destructor -- clean up mem plugin resources.
  *
- * Removes the polling timer and destroys the box widget.
- *
- * BUG: gtk_widget_destroy(mem->box) is redundant because mem->box is
- *   a child of p->pwid; it will be destroyed again by the framework.
+ * Removes the polling timer.  mem->box is a child of p->pwid and will
+ * be destroyed by the framework; no explicit gtk_widget_destroy needed.
  */
 static void
 mem_destructor(plugin_instance *p)
@@ -253,7 +249,6 @@ mem_destructor(plugin_instance *p)
     ENTER;
     if (mem->timer)
         g_source_remove(mem->timer);
-    gtk_widget_destroy(mem->box);   /* BUG: double-destroy (also destroyed via p->pwid) */
     RET();
 }
 

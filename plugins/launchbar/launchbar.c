@@ -23,13 +23,10 @@
  *   (UTF-16 encoded "URL\nTitle").  Each received URI is appended to the
  *   button's action string before spawning the command.
  *
- * Known bugs:
- *   BUG: lb->box (the GtkBar) is destroyed in launchbar_destructor with
- *     gtk_widget_destroy(), but box is a child of the GtkAlignment which is
- *     itself a child of p->pwid — destroyed by the panel framework after
- *     the destructor returns → potential double-destroy of lb->box.
- *     (In practice GTK2 silently ignores the second destroy for already-
- *     destroyed widgets.)
+ * Fixed bugs:
+ *   Fixed (BUG-003): Removed explicit gtk_widget_destroy(lb->box) from
+ *     launchbar_destructor.  The panel framework destroys p->pwid (and thus
+ *     lb->box) automatically after the destructor returns.
  */
 
 #include <stdio.h>
@@ -165,13 +162,14 @@ my_button_pressed(GtkWidget *widget, GdkEventButton *event, btn *b )
 /*
  * launchbar_destructor -- free all launchbar resources.
  *
- * Destroys the GtkBar box widget and frees each button's action string.
+ * Frees each button's action string.
  *
  * Parameters:
  *   p - plugin_instance.
  *
- * BUG: lb->box is a descendant of p->pwid; destroying it here and then
- *   letting the framework destroy p->pwid causes a double-destroy.
+ * Note: lb->box is a child of p->pwid; the framework destroys p->pwid
+ *   (and all its children) after this destructor returns, so no explicit
+ *   gtk_widget_destroy(lb->box) is needed here.
  */
 static void
 launchbar_destructor(plugin_instance *p)
@@ -180,7 +178,6 @@ launchbar_destructor(plugin_instance *p)
     int i;
 
     ENTER;
-    gtk_widget_destroy(lb->box);
     for (i = 0; i < lb->btn_num; i++)
         g_free(lb->btns[i].action);     /* action was g_strdup'd by expand_tilda */
 

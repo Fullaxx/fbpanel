@@ -23,14 +23,10 @@
  *   It reads /proc/meminfo, computes fractional usage [0..1] for each row,
  *   calls chart->add_tick(), and updates the tooltip.
  *
- * Known bugs:
- *   BUG: The non-Linux stub for mem_usage() is declared as
- *     "static int mem_usage()" with no parameters, but the Linux version
- *     has signature "static int mem_usage(mem2_priv *c)".  The g_timeout_add
- *     callback passes mem2_priv* as the first argument — correct for the
- *     Linux version, but the non-Linux stub ignores all parameters and
- *     returns nothing (implicit void vs declared int).  This causes a
- *     compile-time type mismatch on non-Linux platforms.
+ * Fixed bugs:
+ *   Fixed (BUG-005): Non-Linux stub for mem_usage() now has the correct
+ *     signature "static gboolean mem_usage(mem2_priv *c)" to match the
+ *     Linux version and the GSourceFunc callback contract.
  */
 
 #include "../chart/chart.h"
@@ -180,17 +176,13 @@ mem_usage(mem2_priv *c)
 
 }
 #else
-/*
- * Non-Linux stub — no memory information available.
- *
- * BUG: declared as returning int with no parameters, but the Linux version
- *   takes mem2_priv* and is called as (GSourceFunc) mem_usage with a
- *   mem2_priv* argument.  This creates a type mismatch on non-Linux builds.
- */
-static int
-mem_usage()
+/* Non-Linux stub — no memory information available.
+ * Signature matches the Linux version and GSourceFunc requirements. */
+static gboolean
+mem_usage(mem2_priv *c)
 {
-    /* nothing to do on unsupported platforms */
+    (void)c;   /* unused on this platform */
+    return TRUE;
 }
 #endif
 

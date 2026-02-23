@@ -32,15 +32,12 @@
  *   Drag motion with delay: activate window after DRAG_ACTIVE_DELAY ms.
  *   Ctrl+RMB: pass to panel (suppress matching release).
  *
- * Known bugs:
- *   BUG: "number_of_desktops" FbEv signal is connected to BOTH
- *     tb_net_number_of_desktops (display refresh) AND tb_make_menu (menu
- *     rebuild), but only tb_net_number_of_desktops is disconnected in the
- *     destructor.  The "desktop_names" → tb_make_menu connection is also
- *     never disconnected.  These leaked connections fire after the plugin
- *     is destroyed, causing use-after-free.
- *   BUG: use_net_active is a file-scope static — shared across all taskbar
- *     instances.  Multiple taskbar instances would interfere.
+ * Fixed bugs:
+ *   Fixed (BUG-008): taskbar_destructor now disconnects all tb_make_menu
+ *     FbEv signal connections ("number_of_desktops", "desktop_names") in
+ *     addition to the tb_net_number_of_desktops connection.
+ *   Fixed (BUG-009): use_net_active moved from file-scope static into
+ *     taskbar_priv so each plugin instance has its own copy.
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -183,6 +180,7 @@ typedef struct _taskbar{
     int use_mouse_wheel;
     int use_urgency_hint;
     int discard_release_event;
+    gboolean use_net_active;   /* TRUE if WM supports _NET_ACTIVE_WINDOW */
 } taskbar_priv;
 
 
@@ -198,13 +196,7 @@ static gchar *taskbar_rc = "style 'taskbar-style'\n"
 "}\n"
 "widget '*.taskbar.*' style 'taskbar-style'";
 
-/*
- * use_net_active -- whether the WM supports _NET_ACTIVE_WINDOW.
- *
- * BUG: file-scope static shared across all taskbar instances.
- * Set once by net_active_detect() called from taskbar_constructor.
- */
-static gboolean use_net_active=FALSE;
+/* use_net_active has been moved into taskbar_priv (per-instance field). */
 
 /* Delay before activating a window during drag-over (prevents accidental switch) */
 #define DRAG_ACTIVE_DELAY       1000
@@ -853,7 +845,7 @@ tk_raise_window( task *tk, guint32 time )
             0, 0, 0, 0);
         XSync (gdk_display, False);
     }
-    if(use_net_active) {
+    if(tk->tb->use_net_active) {
         Xclimsg(tk->win, a_NET_ACTIVE_WINDOW, 2, time, 0, 0, 0);
     }
     else {
@@ -1016,7 +1008,7 @@ tk_callback_button_release_event(GtkWidget *widget, GdkEventButton *event,
     if (event->button == 1) {
         if (tk->iconified)    {
             /* un-iconify (map + raise) the window */
-            if(use_net_active) {
+            if(tk->tb->use_net_active) {
                 Xclimsg(tk->win, a_NET_ACTIVE_WINDOW, 2, event->time, 0, 0, 0);
             } else {
                 GdkWindow *gdkwindow;
@@ -1706,10 +1698,8 @@ taskbar_size_alloc(GtkWidget *widget, GtkAllocation *a,
  * Loads the default icon, installs the GDK event filter, connects FbEv
  * signals, and performs an initial build of the context menu.
  *
- * BUG: "number_of_desktops" is connected to BOTH tb_net_number_of_desktops
- *   AND tb_make_menu, but the destructor only disconnects
- *   tb_net_number_of_desktops.  The tb_make_menu connection (and the
- *   "desktop_names" → tb_make_menu connection) are leaked.
+ * All FbEv connections (tb_net_number_of_desktops, tb_make_menu) are
+ * disconnected in taskbar_destructor (BUG-008 fix).
  */
 static void
 taskbar_build_gui(plugin_instance *p)
@@ -1750,7 +1740,7 @@ taskbar_build_gui(plugin_instance *p)
           G_CALLBACK (tb_net_client_list), (gpointer) tb);
     g_signal_connect (G_OBJECT (fbev), "desktop_names",
           G_CALLBACK (tb_make_menu), (gpointer) tb);
-    /* BUG: second connection to "number_of_desktops" is not disconnected in destructor */
+    /* second connection for menu rebuild (disconnected via tb_make_menu in destructor) */
     g_signal_connect (G_OBJECT (fbev), "number_of_desktops",
           G_CALLBACK (tb_make_menu), (gpointer) tb);
 
@@ -1769,11 +1759,9 @@ taskbar_build_gui(plugin_instance *p)
  * net_active_detect -- check if the WM supports _NET_ACTIVE_WINDOW.
  *
  * Reads _NET_SUPPORTED from the root window and scans for the atom.
- * Sets the file-scope use_net_active flag.
- *
- * BUG: file-scope static — affects all taskbar instances globally.
+ * Sets tb->use_net_active (per-instance; not a shared static).
  */
-void net_active_detect()
+static void net_active_detect(taskbar_priv *tb)
 {
     int nitens;
     Atom *data;
@@ -1784,7 +1772,7 @@ void net_active_detect()
 
     while (nitens > 0)
         if(data[--nitens]==a_NET_ACTIVE_WINDOW) {
-            use_net_active = TRUE;
+            tb->use_net_active = TRUE;
             break;
         }
 
@@ -1813,7 +1801,7 @@ taskbar_constructor(plugin_instance *p)
     tb = (taskbar_priv *) p;
     gtk_rc_parse_string(taskbar_rc);
     get_button_spacing(&req, GTK_CONTAINER(p->pwid), "");
-    net_active_detect();
+    net_active_detect(tb);
 
     /* initialise defaults */
     tb->topxwin           = p->panel->topxwin;
@@ -1869,10 +1857,9 @@ taskbar_constructor(plugin_instance *p)
 /*
  * taskbar_destructor -- clean up all taskbar plugin resources.
  *
- * Removes the GDK event filter, disconnects 4 FbEv signals
- * (BUG: "desktop_names" → tb_make_menu and "number_of_desktops" →
- * tb_make_menu are NOT disconnected), removes all tasks, destroys
- * the hash table, XFree's the window list, and destroys the menu.
+ * Removes the GDK event filter, disconnects all 6 FbEv signals,
+ * removes all tasks, destroys the hash table, XFree's the window
+ * list, and destroys the menu.
  */
 static void
 taskbar_destructor(plugin_instance *p)
@@ -1889,8 +1876,8 @@ taskbar_destructor(plugin_instance *p)
             tb_net_number_of_desktops, tb);
     g_signal_handlers_disconnect_by_func(G_OBJECT (fbev),
             tb_net_client_list, tb);
-    /* BUG: "desktop_names" → tb_make_menu NOT disconnected */
-    /* BUG: "number_of_desktops" → tb_make_menu NOT disconnected */
+    g_signal_handlers_disconnect_by_func(G_OBJECT (fbev),
+            tb_make_menu, tb);
 
     g_hash_table_foreach_remove(tb->task_list, (GHRFunc) task_remove_every,
             NULL);

@@ -73,21 +73,12 @@ button_press_handler (GtkWidget *tip,
  *
  * Connected to the "expose_event" signal of the tip window.
  *
- * BUG: the function signature declares `GtkTooltips *tooltips` as the
- *      first parameter, but GTK passes `(GtkWidget *, GdkEventExpose *,
- *      gpointer)` for "expose_event".  The first argument is actually
- *      a GtkWidget* (the tip window itself), not a GtkTooltips*.  This
- *      compiles silently but is a type mismatch; the body accesses
- *      tip->style and tip->window via the file-scope static rather than
- *      the callback argument, so the paint call is functionally correct,
- *      but the signature is still wrong (undefined behaviour).
+ * Paints the tooltip background chrome using the GTK "tooltip" style.
+ * Uses the file-scope static `tip` for widget/window references.
  */
 static gboolean
-expose_handler (GtkTooltips *tooltips)
+expose_handler (GtkWidget *widget, GdkEventExpose *event, gpointer data)
 {
-  /* Paint the tooltip box chrome using the GTK "tooltip" detail string.
-   * Uses the file-scope static `tip` rather than the callback argument
-   * because the parameter type is wrong (see BUG note above).           */
   gtk_paint_flat_box (tip->style, tip->window,
                       GTK_STATE_NORMAL, GTK_SHADOW_OUT,
                       NULL, tip, "tooltip",

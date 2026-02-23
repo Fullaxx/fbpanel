@@ -31,14 +31,11 @@
  *   pixmap, scale it to thumbnail size, and composite it into d->gpix.
  *   Non-zero desk indices share the background from desk[0] when possible.
  *
- * Known bugs:
- *   BUG: desk_configure_event() has scalew/scaleh swapped:
- *     d->scalew = widget_h / screen_h  (vertical ratio — should be horizontal)
- *     d->scaleh = widget_w / screen_w  (horizontal ratio — should be vertical)
- *     This causes window thumbnails to be scaled and positioned incorrectly
- *     on non-square thumbnail aspect ratios.
- *   BUG: pg->gen_pixbuf (the default XPM icon) is never g_object_unref'd in
- *     pager_destructor → one GdkPixbuf memory leak per plugin load.
+ * Fixed bugs:
+ *   Fixed (BUG-006): desk_configure_event() now correctly sets
+ *     scalew = widget_w / screen_w and scaleh = widget_h / screen_h.
+ *   Fixed (BUG-007): pg->gen_pixbuf is now g_object_unref'd in
+ *     pager_destructor.
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -106,8 +103,8 @@ typedef struct _pager_priv  pager_priv;
  * no     - desktop index (0-based).
  * dirty  - 1 if pix needs to be redrawn before the next blit.
  * first  - 1 before the first configure event (unused after init).
- * scalew - horizontal scale factor: thumbnail_h / screen_h (BUG: swapped).
- * scaleh - vertical scale factor: thumbnail_w / screen_w (BUG: swapped).
+ * scalew - horizontal scale factor: thumbnail_w / screen_w.
+ * scaleh - vertical scale factor:   thumbnail_h / screen_h.
  * pg     - back-pointer to pager_priv.
  */
 struct _desk {
@@ -138,7 +135,7 @@ struct _desk {
  * fbbg       - FbBg reference for wallpaper rendering (NULL if !wallpaper).
  * dah,daw   - desk area height and width in pixels.
  * gen_pixbuf - default application icon (loaded from default.xpm).
- *              BUG: never g_object_unref'd in destructor.
+ *              Unreferenced in pager_destructor (BUG-007 fix).
  */
 struct _pager_priv {
     plugin_instance plugin;
@@ -632,9 +629,8 @@ desk_expose_event (GtkWidget *widget, GdkEventExpose *event, desk *d)
  *
  * Returns: FALSE (allow further handlers).
  *
- * BUG: scale factors are swapped:
- *   d->scalew = h / screen_h  (vertical ratio)  → should be w / screen_w
- *   d->scaleh = w / screen_w  (horizontal ratio) → should be h / screen_h
+ * Scale factors: scalew = w / screen_w, scaleh = h / screen_h.
+ *   (BUG-006 was: these were swapped; now corrected.)
  */
 static gint
 desk_configure_event (GtkWidget *widget, GdkEventConfigure *event, desk *d)
@@ -655,9 +651,8 @@ desk_configure_event (GtkWidget *widget, GdkEventConfigure *event, desk *d)
         d->gpix = gdk_pixmap_new(widget->window, w, h, -1);
         desk_draw_bg(d->pg, d);
     }
-    /* BUG: h/screen_h and w/screen_w are swapped — scalew should use w, scaleh should use h */
-    d->scalew = (gfloat)h / (gfloat)gdk_screen_height();
-    d->scaleh = (gfloat)w / (gfloat)gdk_screen_width();
+    d->scalew = (gfloat)w / (gfloat)gdk_screen_width();
+    d->scaleh = (gfloat)h / (gfloat)gdk_screen_height();
     desk_set_dirty(d);
     RET(FALSE);
 }
@@ -1419,7 +1414,7 @@ pager_constructor(plugin_instance *plug)
 
     /* default application icon (used when no window icon is available) */
     pg->gen_pixbuf = gdk_pixbuf_new_from_xpm_data((const char **)icon_xpm);
-    /* BUG: pg->gen_pixbuf is never g_object_unref'd in pager_destructor */
+    /* gen_pixbuf is g_object_unref'd in pager_destructor (BUG-007 fix) */
 
     pager_rebuild_all(fbev, pg);   /* initial desktop setup */
 
@@ -1442,9 +1437,8 @@ pager_constructor(plugin_instance *plug)
  *
  * Disconnects FbEv signals, removes GDK event filter, frees all desks,
  * clears and destroys the hash table, destroys the box widget,
- * disconnects FbBg if wallpaper was enabled, XFree's the window list.
- *
- * BUG: pg->gen_pixbuf is NOT g_object_unref'd here → memory leak.
+ * releases gen_pixbuf, disconnects FbBg if wallpaper was enabled,
+ * and XFree's the window list.
  */
 static void
 pager_destructor(plugin_instance *p)
@@ -1476,7 +1470,8 @@ pager_destructor(plugin_instance *p)
         DBG("put fbbg %p\n", pg->fbbg);
         g_object_unref(pg->fbbg);   /* release FbBg reference */
     }
-    /* BUG: pg->gen_pixbuf not unref'd here */
+    if (pg->gen_pixbuf)
+        g_object_unref(pg->gen_pixbuf);
     if (pg->wins)
         XFree(pg->wins);   /* free window list from _NET_CLIENT_LIST_STACKING */
     RET();

@@ -20,13 +20,11 @@
  *   /proc/stat readings, passes the normalised fraction [0..1] to
  *   chart->add_tick(), and updates the tooltip.
  *
- * Known bugs:
- *   BUG: In the non-Linux/FreeBSD stub, cpu_get_load_real() references
- *     the parameter as "cpu" but the parameter is named "s" → compile error.
- *   BUG: If cpu_get_load_real() fails (goto end), the local variables
- *     "a" and "b" are used uninitialised in the DBG() trace after the
- *     label.  total[0] remains 0.0 (from memset) which is fine, but the
- *     debug print reads uninitialized stack values.
+ * Fixed bugs:
+ *   Fixed (BUG-001): Non-Linux/FreeBSD stub now uses parameter name "s"
+ *     to match the Linux/FreeBSD branches.
+ *   Fixed (BUG-002): Locals "a" and "b" are now initialised to 0.0 at
+ *     declaration so the DBG() trace after "goto end" reads defined values.
  */
 
 #include <string.h>
@@ -129,12 +127,12 @@ cpu_get_load_real(struct cpu_stat *cpu)
     return 0;
 }
 #else
-/* BUG: parameter is named "s" but body would need "cpu" — compile error */
+/* Unsupported platform stub: zero the struct and return failure. */
 static int
 cpu_get_load_real(struct cpu_stat *s)
 {
-    memset(cpu, 0, sizeof(struct cpu_stat));
-    return 0;
+    memset(s, 0, sizeof(struct cpu_stat));
+    return -1;
 }
 #endif
 
@@ -152,15 +150,14 @@ cpu_get_load_real(struct cpu_stat *s)
  *
  * Returns: TRUE (keeps the GLib timer running).
  *
- * BUG: if cpu_get_load_real() fails (goto end), locals "a" and "b" are
- *   used uninitialised in the DBG() call after the label.  total[0]
- *   stays 0.0, which is the right value to report in that case, so the
- *   chart behaviour is safe — only the debug trace is affected.
+ * Note: if cpu_get_load_real() fails (goto end), "a" and "b" are used
+ *   in the DBG() call below — they are initialised to 0.0 at declaration
+ *   (BUG-002 fix) so the debug trace will show 0.0 in the failure path.
  */
 static int
 cpu_get_load(cpu_priv *c)
 {
-    gfloat a, b;
+    gfloat a = 0.0, b = 0.0;
     struct cpu_stat cpu, cpu_diff;
     float total[1];   /* single-row value for add_tick */
     gchar buf[40];
@@ -171,7 +168,7 @@ cpu_get_load(cpu_priv *c)
     memset(&total, 0, sizeof(total));
 
     if (cpu_get_load_real(&cpu))
-        goto end;   /* BUG: a, b uninitialised past this point */
+        goto end;   /* a=0.0, b=0.0 by initialisation — safe to trace */
 
     /* compute per-field deltas since last sample */
     cpu_diff.u = cpu.u - c->cpu_prev.u;
@@ -187,7 +184,7 @@ cpu_get_load(cpu_priv *c)
     total[0] = b ? a / b : 1.0;   /* avoid division by zero; assume 100% if b=0 */
 
 end:
-    DBG("total=%f a=%f b=%f\n", total[0], a, b);  /* BUG: a,b uninit if goto taken */
+    DBG("total=%f a=%f b=%f\n", total[0], a, b);  /* a,b=0.0 on failure path */
     g_snprintf(buf, sizeof(buf), "<b>Cpu:</b> %d%%", (int)(total[0] * 100));
     gtk_widget_set_tooltip_markup(((plugin_instance *)c)->pwid, buf);
     k->add_tick(&c->chart, total);   /* push to chart ring-buffer */

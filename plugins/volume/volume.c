@@ -16,8 +16,8 @@
  *   - Scroll:       adjust volume ±2% (clamped 0..100)
  *   - Auto-hide slider when pointer leaves for ≥1200 ms
  *
- * BUG: close(c->fd) is never called in volume_destructor.  The file
- *      descriptor for /dev/mixer is leaked when the plugin is unloaded.
+ * Fixed (BUG-011): volume_destructor now calls close(c->fd) to release
+ *      the /dev/mixer file descriptor when the plugin is unloaded.
  */
 
 #include "misc.h"
@@ -498,8 +498,6 @@ volume_constructor(plugin_instance *p)
  * Stops the update timer, destroys the slider popup if open, calls the
  * parent meter destructor, and releases the meter class reference.
  *
- * BUG: close(c->fd) is never called here.  The /dev/mixer file descriptor
- *      opened in volume_constructor is leaked when the plugin is unloaded.
  */
 static void
 volume_destructor(plugin_instance *p)
@@ -510,9 +508,9 @@ volume_destructor(plugin_instance *p)
     g_source_remove(c->update_id);           /* stop the 1000 ms timer    */
     if (c->slider_window)
         gtk_widget_destroy(c->slider_window);/* close slider popup if open */
+    close(c->fd);                            /* release /dev/mixer fd      */
     PLUGIN_CLASS(k)->destructor(p);          /* parent class cleanup       */
     class_put("meter");                      /* decrement class refcount   */
-    /* BUG: close(c->fd) missing → /dev/mixer fd leak                     */
     RET();
 }
 
