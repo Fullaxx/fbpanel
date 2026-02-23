@@ -364,6 +364,95 @@ Plugin {
 #    }
 #}
 
+## ──────────────────────────────────────────────
+## New Tier-1 plugins (disabled by default)
+## Uncomment any block below to activate.
+## ──────────────────────────────────────────────
+
+## Window Title — active focused window title
+#Plugin {
+#    type = windowtitle
+#    expand = true
+#    config {
+#        MaxWidth = 40
+#    }
+#}
+
+## Load Average — /proc/loadavg (1m 5m 15m)
+#Plugin {
+#    type = loadavg
+#    config {
+#        Show1  = true
+#        Show5  = true
+#        Show15 = false
+#        Period = 5000
+#    }
+#}
+
+## Swap Usage — /proc/meminfo SwapTotal/SwapFree
+#Plugin {
+#    type = swap
+#    expand = false
+#    config {
+#        HideIfNoSwap = true
+#        Period = 10000
+#    }
+#}
+
+## CPU Frequency — /sys/devices/system/cpu/cpu0/cpufreq
+#Plugin {
+#    type = cpufreq
+#    config {
+#        CpuIndex = 0
+#        Period = 2000
+#    }
+#}
+
+## Thermal Monitor — /sys/class/thermal/thermal_zone0/temp
+#Plugin {
+#    type = thermal
+#    config {
+#        ThermalZone = 0
+#        WarnTemp = 70
+#        CritTemp = 90
+#        Period = 5000
+#    }
+#}
+
+## Disk Space — filesystem usage via statvfs(3)
+#Plugin {
+#    type = diskspace
+#    expand = false
+#    config {
+#        MountPoint = /
+#        Period = 10000
+#    }
+#}
+
+## Disk I/O — /proc/diskstats read/write throughput
+#Plugin {
+#    type = diskio
+#    config {
+#        Device = sda
+#        ReadLimit  = 100000
+#        WriteLimit = 100000
+#        ReadColor  = green
+#        WriteColor = red
+#    }
+#}
+
+## Brightness — /sys/class/backlight (scroll wheel to adjust)
+#Plugin {
+#    type = brightness
+#    config {
+#        # Device = intel_backlight
+#        Step = 5
+#        Period = 2000
+#    }
+#}
+
+## ──────────────────────────────────────────────
+
 # 'icons' plugin lets you customize window icons.
 # these changes apply to entire desktop
 Plugin {

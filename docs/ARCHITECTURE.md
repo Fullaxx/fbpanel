@@ -265,15 +265,20 @@ The plugin exports a single `plugin_class *class_ptr` symbol and calls
 |--------|-------------|
 | `battery` | Battery level via icon meter (reads `/sys/class/power_supply`) |
 | `batterytext` | Battery level as text label |
-| `chart` | Reusable scrolling bar-graph widget (used by cpu/mem/net) |
+| `brightness` | Backlight brightness label + scroll-to-adjust (`/sys/class/backlight`) |
+| `chart` | Reusable scrolling bar-graph widget (used by cpu/mem/net/diskio) |
 | `cpu` | CPU usage bar graph (reads `/proc/stat`) |
+| `cpufreq` | CPU clock frequency label (`/sys/devices/system/cpu/cpuN/cpufreq`) |
 | `dclock` | Digital clock label with optional calendar popup |
 | `deskno` | Current virtual desktop number label |
 | `deskno2` | Alternative desktop number format |
+| `diskio` | Disk read/write throughput chart (reads `/proc/diskstats`) |
+| `diskspace` | Filesystem usage progress bar (`statvfs(3)`) |
 | `genmon` | Generic external command output display |
 | `icons` | Row of open window icons |
 | `image` | Static icon from file or theme |
 | `launchbar` | Row of icon buttons that launch commands |
+| `loadavg` | System load average label (reads `/proc/loadavg`) |
 | `mem` | Memory usage bar graph (reads `/proc/meminfo`) |
 | `mem2` | Memory usage text label |
 | `menu` | Application menu from freedesktop .menu files |
@@ -282,12 +287,15 @@ The plugin exports a single `plugin_class *class_ptr` symbol and calls
 | `pager` | Virtual desktop pager (miniature desktop view) |
 | `separator` | Visual separator line |
 | `space` | Expanding spacer |
+| `swap` | Swap usage progress bar (reads `/proc/meminfo`; hides if no swap) |
 | `taskbar` | Window taskbar (EWMH client list) |
 | `tclock` | Analog clock drawn on a GtkDrawingArea |
+| `thermal` | CPU/board temperature label (`/sys/class/thermal`; colour-coded) |
 | `tray` | System tray (freedesktop XEMBED protocol) |
 | `user` | Current username label |
 | `volume` | ALSA master volume control |
 | `wincmd` | Send EWMH commands to windows |
+| `windowtitle` | Active window title label (EWMH `_NET_ACTIVE_WINDOW`) |
 
 ---
 

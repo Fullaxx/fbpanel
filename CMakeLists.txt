@@ -83,7 +83,7 @@ target_include_directories(fbpanel SYSTEM PRIVATE ${X11_INCLUDE_DIRS} ${MODULES_
 target_link_libraries     (fbpanel        PRIVATE -lm ${X11_LIBRARIES} ${MODULES_LIBRARIES} -Wl,--export-dynamic)
 
 # make a list of fbpanel plugins
-set(PLUGINS battery batterytext cpu deskno genmon image mem2 meter pager space tclock volume chart dclock deskno2 icons launchbar mem menu net separator taskbar tray user wincmd)
+set(PLUGINS battery batterytext cpu deskno genmon image mem2 meter pager space tclock volume chart dclock deskno2 icons launchbar mem menu net separator taskbar tray user wincmd brightness cpufreq diskio diskspace loadavg swap thermal windowtitle)
 
 foreach(PLUGIN ${PLUGINS})
     file(GLOB PLUGIN_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} plugins/${PLUGIN}/*.c)

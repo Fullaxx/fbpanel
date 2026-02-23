@@ -33,15 +33,20 @@ maintenance.
 |--------|-------------|
 | `battery` | Battery charge level — icon style |
 | `batterytext` | Battery charge level — text/numeric style |
+| `brightness` | Screen backlight brightness — `/sys/class/backlight`; scroll-wheel to adjust |
 | `chart` | Scrolling bar-chart base (used by cpu, net, mem2) |
 | `cpu` | CPU usage chart |
+| `cpufreq` | CPU clock frequency label — `/sys/devices/system/cpu/cpuN/cpufreq` |
 | `dclock` | Digital clock using pixel-art bitmap glyphs |
 | `deskno` | Current virtual desktop number |
 | `deskno2` | Current virtual desktop name |
+| `diskio` | Disk read/write throughput chart — `/proc/diskstats` |
+| `diskspace` | Filesystem usage progress bar — `statvfs(3)` |
 | `genmon` | Generic monitor — runs a command and displays its output |
 | `icons` | Invisible plugin: override per-application window icons |
 | `image` | Static image |
 | `launchbar` | Application launcher bar |
+| `loadavg` | System load average label — `/proc/loadavg` (1m/5m/15m) |
 | `mem` | Memory usage (progress-bar style) |
 | `mem2` | Memory usage (chart style) |
 | `menu` | Application menu button ("start menu") |
@@ -50,12 +55,15 @@ maintenance.
 | `pager` | Virtual desktop pager (thumbnail miniatures) |
 | `separator` | Visual separator |
 | `space` | Blank spacer |
+| `swap` | Swap usage progress bar — `/proc/meminfo`; hides when no swap |
 | `taskbar` | One button per open window; raise/iconify/close |
 | `tclock` | Text clock using GTK/Pango (honours the theme font) |
+| `thermal` | CPU/board temperature label — `/sys/class/thermal`; colour-coded |
 | `tray` | Freedesktop system notification area (system tray) |
 | `user` | User avatar with popup action menu |
 | `volume` | OSS/ALSA volume control |
 | `wincmd` | "Show Desktop" button |
+| `windowtitle` | Active window title label — updates via EWMH `_NET_ACTIVE_WINDOW` |
 
 ## Installation
 

@@ -413,6 +413,153 @@ Plugin {
 }
 ```
 
+### `windowtitle` — Active Window Title
+
+Displays the title of the currently focused window.  Reads
+`_NET_ACTIVE_WINDOW` then `_NET_WM_NAME` (falling back to `WM_NAME`)
+via EWMH.  Shows `--` when no window is focused.  Use `expand = true`
+so it fills available panel space.  Soft-disable: never — always loads.
+
+```
+Plugin {
+    type = windowtitle
+    expand = true
+    Config {
+        MaxWidth = 40   # Max chars before truncation with ellipsis (0 = no limit)
+    }
+}
+```
+
+### `loadavg` — System Load Average
+
+Displays 1-minute, 5-minute, and/or 15-minute load averages from
+`/proc/loadavg`.  Soft-disables if `/proc/loadavg` is unreadable
+(e.g. inside a container without a `/proc` bind-mount).
+
+```
+Plugin {
+    type = loadavg
+    Config {
+        Show1  = true   # Show 1-minute load average
+        Show5  = true   # Show 5-minute load average
+        Show15 = false  # Show 15-minute load average
+        Period = 5000   # Update interval in milliseconds (min: 500)
+    }
+}
+```
+
+### `swap` — Swap Usage
+
+Displays swap space usage as a `GtkProgressBar`.  Reads `SwapTotal` and
+`SwapFree` from `/proc/meminfo`.  Soft-disables if `/proc/meminfo` is
+unreadable; hides automatically when `HideIfNoSwap = true` (default)
+and swap size is zero.
+
+```
+Plugin {
+    type = swap
+    Config {
+        HideIfNoSwap = true   # Hide widget entirely when no swap exists
+        Period = 10000        # Update interval in milliseconds (min: 1000)
+    }
+}
+```
+
+### `cpufreq` — CPU Frequency
+
+Displays the current CPU clock frequency as a text label (e.g. `3.40 GHz`
+or `800 MHz`).  Reads `/sys/devices/system/cpu/cpuN/cpufreq/scaling_cur_freq`.
+Soft-disables if the sysfs node is absent (VM, container, or CPU without
+frequency scaling).
+
+```
+Plugin {
+    type = cpufreq
+    Config {
+        CpuIndex = 0     # CPU core index (0 = cpu0)
+        Period   = 2000  # Update interval in milliseconds (min: 250)
+    }
+}
+```
+
+### `thermal` — CPU / Board Temperature
+
+Displays temperature from `/sys/class/thermal/thermal_zoneN/temp` as a
+text label (e.g. `45°C`).  Colour-coded: orange at `WarnTemp`, red at
+`CritTemp`.  Soft-disables if the thermal zone does not exist.
+
+```
+Plugin {
+    type = thermal
+    Config {
+        ThermalZone = 0    # Thermal zone index (0 = thermal_zone0)
+        WarnTemp    = 70   # Orange threshold in °C
+        CritTemp    = 90   # Red threshold in °C
+        Period      = 5000 # Update interval in milliseconds (min: 500)
+    }
+}
+```
+
+### `diskspace` — Filesystem Usage
+
+Displays filesystem usage as a `GtkProgressBar` using `statvfs(3)`.
+The tooltip shows absolute used / free / total sizes.  Soft-disables if
+the configured mount point is inaccessible at startup.
+
+```
+Plugin {
+    type = diskspace
+    Config {
+        MountPoint = /      # Filesystem path to monitor
+        Period     = 10000  # Update interval in milliseconds (min: 1000)
+    }
+}
+```
+
+### `diskio` — Disk I/O Throughput
+
+Displays disk read and write throughput as a scrolling bar chart.
+Uses the shared `chart` plugin backend (same as `cpu` and `net`).
+Reads `/proc/diskstats`.  Soft-disables if the configured device is
+not found in `/proc/diskstats`.
+
+```
+Plugin {
+    type = diskio
+    Config {
+        Device     = sda      # Block device name to monitor
+        ReadLimit  = 100000   # Max read throughput in KiB/s (chart ceiling)
+        WriteLimit = 100000   # Max write throughput in KiB/s
+        ReadColor  = green    # Chart colour for reads
+        WriteColor = red      # Chart colour for writes
+    }
+}
+```
+
+### `brightness` — Backlight Brightness
+
+Displays backlight brightness as a text percentage (e.g. `75%`).
+Scroll the mouse wheel up/down over the label to increase/decrease
+brightness.  Reads `/sys/class/backlight/<dev>/brightness` and
+`max_brightness`.  Auto-detects the first device under
+`/sys/class/backlight/` when `Device` is not set.  Soft-disables if
+no backlight device is found.
+
+Adjusting brightness requires write access to the brightness sysfs node
+(typically granted via a udev `TAG+="uaccess"` rule or membership in
+the `video` group).
+
+```
+Plugin {
+    type = brightness
+    Config {
+        Device = intel_backlight  # Backlight device name (default: auto-detect)
+        Step   = 5                # Adjustment step as % of max (1–50)
+        Period = 2000             # Update interval in milliseconds (min: 500)
+    }
+}
+```
+
 ---
 
 ## Example complete config
