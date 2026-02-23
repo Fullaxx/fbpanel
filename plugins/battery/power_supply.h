@@ -114,7 +114,7 @@ power_supply* power_supply_new();
  *        power_supply_new().  Passing NULL is undefined behaviour.
  *
  * Memory: Frees the power_supply struct, both GSequences, and every
- *         ac*/bat* element they contain (via ac_free/bat_free callbacks
+ *         ac* and bat* element they contain (via ac_free/bat_free callbacks
  *         registered at sequence creation time).
  *
  * Note: Signature uses gpointer so this function can be used directly
