@@ -1,28 +1,69 @@
 # fbpanel
-A lightweight gtk2 panel for Linux desktop.
 
-## Story
-Looks like previous maintainer of this project gaveup and freeze any development 4+ years ago.
+A lightweight GTK2 panel for the Linux desktop.
 
-## This place
-This repository is an attempt to gather different efforts on maintenance of fbpanel in one place.
+fbpanel draws a configurable panel bar — taskbar, system tray, launcher,
+clock, pager, resource monitors, and more — built from small, independent
+plugins loaded at startup.  It is a plain X11 application with no desktop
+environment dependency.
 
-## Branches
-Mainline branch is tested and known as working. All PR (if any) should be made to this btanch.
+## Screenshot
 
-Master branch is where development happens.
+![screenshot](/data/shot.png)
 
-## What is this all about?
-Just for fun. Really.
+## History
 
-## Help?
-If you have an idea or fix, please make PR. I'll review it carefully and try to merge if it worth.
+fbpanel was originally written by Anatoly Asviyan (aanatoly).  When
+development stalled and the project was abandoned,
+[eleksir](https://github.com/eleksir/fbpanel) picked it up (~2020) and made
+substantial improvements: migrated the build from the old Python 2 autotools
+system to CMake, added the `batterytext` and `user` plugins, rewrote the
+battery backend to use `/sys` instead of `/proc`, added pager icon drawing,
+fixed a pile of compiler warnings and GLib deprecations, and shipped the
+result as v7.2.
 
-## Supported Targets and Release Assets
+This repository imported eleksir's v7.2 as its starting point (v8.0.0),
+then continued from there with further bug fixes, refactoring, and active
+maintenance.
 
-Each tagged release publishes pre-built packages for the following distributions.
+## Plugins
 
-### Debian / Ubuntu (`.deb`)
+| Plugin | Description |
+|--------|-------------|
+| `battery` | Battery charge level — icon style |
+| `batterytext` | Battery charge level — text/numeric style |
+| `chart` | Scrolling bar-chart base (used by cpu, net, mem2) |
+| `cpu` | CPU usage chart |
+| `dclock` | Digital clock using pixel-art bitmap glyphs |
+| `deskno` | Current virtual desktop number |
+| `deskno2` | Current virtual desktop name |
+| `genmon` | Generic monitor — runs a command and displays its output |
+| `icons` | Invisible plugin: override per-application window icons |
+| `image` | Static image |
+| `launchbar` | Application launcher bar |
+| `mem` | Memory usage (progress-bar style) |
+| `mem2` | Memory usage (chart style) |
+| `menu` | Application menu button ("start menu") |
+| `meter` | Internal base plugin for icon-level meters |
+| `net` | Network traffic monitor |
+| `pager` | Virtual desktop pager (thumbnail miniatures) |
+| `separator` | Visual separator |
+| `space` | Blank spacer |
+| `taskbar` | One button per open window; raise/iconify/close |
+| `tclock` | Text clock using GTK/Pango (honours the theme font) |
+| `tray` | Freedesktop system notification area (system tray) |
+| `user` | User avatar with popup action menu |
+| `volume` | OSS/ALSA volume control |
+| `wincmd` | "Show Desktop" button |
+
+## Installation
+
+### From a pre-built package
+
+Each tagged release publishes pre-built packages on the
+[Releases page](https://github.com/Fullaxx/fbpanel/releases).
+
+#### Debian / Ubuntu (`.deb`)
 
 | Distro | Asset filename |
 |--------|----------------|
@@ -33,7 +74,12 @@ Each tagged release publishes pre-built packages for the following distributions
 | Debian 12 (Bookworm) | `fbpanel_<version>_amd64_bookworm.deb` |
 | Debian 11 (Bullseye) | `fbpanel_<version>_amd64_bullseye.deb` |
 
-### Fedora (`.rpm`)
+```bash
+sudo dpkg -i fbpanel_<version>_amd64_<distro>.deb
+sudo apt-get install -f   # resolve any missing dependencies
+```
+
+#### Fedora (`.rpm`)
 
 | Distro | Asset filename |
 |--------|----------------|
@@ -42,10 +88,21 @@ Each tagged release publishes pre-built packages for the following distributions
 | Fedora 41 | `fbpanel-<version>-1.x86_64_fedora41.rpm` |
 | Fedora 40 | `fbpanel-<version>-1.x86_64_fedora40.rpm` |
 
-## Screenshot
+```bash
+sudo dnf install fbpanel-<version>-1.x86_64_<distro>.rpm
+```
 
-![screenshot](/data/shot.png)
+### From source
 
-## Links
+See [INSTALL.md](INSTALL.md) for full build instructions and dependency list.
+Quick start:
 
-[Original project web site](http://aanatoly.github.io/fbpanel/)
+```bash
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr
+make -C build -j$(nproc)
+sudo make -C build install
+```
+
+## Contributing
+
+Bug reports and pull requests are welcome.
