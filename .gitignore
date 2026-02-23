@@ -1,8 +1,10 @@
-build/
 *.o
 *.so
 *.a
 *.bak
 *.tmp
+*.swp
 config.h
 version
+.claude
+build/
