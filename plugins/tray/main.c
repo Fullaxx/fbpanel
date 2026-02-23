@@ -433,7 +433,7 @@ tray_constructor(plugin_instance *p)
     // bail out gracefully rather than fighting for the selection.
     if (egg_tray_manager_check_running(screen)) {
         tr->tray_manager = NULL;
-        ERR("tray: another systray already running\n");
+        g_message("tray: another systray already running — tray plugin inactive");
         // Return 1 (success) so the plugin remains loaded but inactive.
         // tr->tray_manager is NULL; tray_destructor handles this safely.
         RET(1);

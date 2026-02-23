@@ -978,9 +978,10 @@ panel_parse_global(xconf *xc)
  * Parameters:
  *   xc - a "plugin" xconf sub-tree.
  *
- * BUG: calls exit(1) if plugin_start() fails, which skips panel_stop()
- *   cleanup.  A graceful error (skip the plugin or abort cleanly) would be
- *   safer.
+ * If the plugin's .so cannot be loaded, a g_warning is printed and the
+ * function returns early.  If the plugin's constructor returns 0 (failure),
+ * a g_message is printed, the plugin is cleanly unloaded via plugin_put(),
+ * and the function returns — the panel continues with the remaining plugins.
  */
 static void
 panel_parse_plugin(xconf *xc)
@@ -991,7 +992,7 @@ panel_parse_plugin(xconf *xc)
     ENTER;
     xconf_get_str(xconf_find(xc, "type", 0), &type);
     if (!type || !(plug = plugin_load(type))) {
-        ERR( "fbpanel: can't load %s plugin\n", type);
+        g_warning("fbpanel: can't load '%s' plugin — skipping", type ? type : "(null)");
         return;
     }
     plug->panel = p;
@@ -1001,8 +1002,10 @@ panel_parse_plugin(xconf *xc)
     plug->xc = xconf_find(xc, "config", 0);  /* non-owning pointer into xc sub-tree */
 
     if (!plugin_start(plug)) {
-        ERR( "fbpanel: can't start plugin %s\n", type);
-        exit(1);   /* BUG: exits without cleanup */
+        /* Constructor returned 0: unload cleanly and continue.            */
+        g_message("fbpanel: plugin '%s' failed to start — skipping", type);
+        plugin_put(plug);
+        return;
     }
     p->plugins = g_list_append(p->plugins, plug);
 }

@@ -211,10 +211,14 @@ mem2_constructor(plugin_instance *p)
 {
     mem2_priv *c;
 
-    if (!(k = class_get("chart")))   /* obtain shared chart plugin class */
+    if (!(k = class_get("chart"))) {   /* obtain shared chart plugin class */
+        g_message("mem2: 'chart' plugin unavailable — plugin disabled");
         RET(0);
-    if (!PLUGIN_CLASS(k)->constructor(p))   /* build chart widget on p->pwid */
+    }
+    if (!PLUGIN_CLASS(k)->constructor(p)) {   /* build chart widget on p->pwid */
+        g_message("mem2: chart constructor failed — plugin disabled");
         RET(0);
+    }
     c = (mem2_priv *) p;
 
     c->colors[0] = "red";   /* default RAM colour */

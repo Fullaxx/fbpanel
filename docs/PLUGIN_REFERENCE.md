@@ -56,7 +56,7 @@ my_constructor(plugin_instance *p)
     priv->timer_id = g_timeout_add(1000, (GSourceFunc) my_update, priv);
     my_update(priv);   /* populate immediately */
 
-    return 1;   /* 1 = success, 0 = failure (plugin skipped) */
+    return 1;   /* 1 = success; 0 = soft failure (panel skips this plugin, continues) */
 }
 
 /* Destructor — paired with constructor; called before pwid is destroyed */
@@ -302,10 +302,79 @@ Plugins do not need to do anything special — it is handled automatically.
 | R1 | Constructor must return `1` on success and `0` on failure. |
 | R2 | **Never call `exit()`, `abort()`, or otherwise terminate the process.** |
 | R3 | Return `0` with a `g_message()` diagnostic for missing hardware/resources. |
-| R4 | The panel treats constructor `0` as non-fatal: plugin is skipped. |
+| R4 | The panel treats constructor `0` as non-fatal: plugin is skipped, panel continues. |
 | R5 | Destructor must cancel all timers, disconnect all signals, close all FDs. |
 | R6 | Destructor must **not** destroy `p->pwid` — that is the panel's job. |
 | R7 | `plugin_instance` must be the **first member** of the private struct. |
 | R8 | Multi-file plugins must `#undef PLUGIN` in their shared internal header. |
 | R9 | Store the return value of every `g_timeout_add()` to allow removal. |
 | R10 | Disconnect from `fbev` signals in the destructor. |
+
+---
+
+## Constructor failure — soft-disable pattern
+
+When a plugin cannot satisfy a runtime prerequisite (missing device node,
+unavailable helper plugin, etc.) it must **not** call `exit()`.  Instead it
+should print an informational message and return `0`.  The panel will call
+`plugin_put()` to cleanly unload the plugin and then continue loading the
+remaining plugins — the rest of the panel starts normally.
+
+### Standard pattern
+
+```c
+static int
+myplugin_constructor(plugin_instance *p)
+{
+    /* 1. Depend on a helper plugin class */
+    if (!(k = class_get("meter"))) {
+        g_message("myplugin: 'meter' plugin unavailable — plugin disabled");
+        return 0;
+    }
+    if (!PLUGIN_CLASS(k)->constructor(p)) {
+        g_message("myplugin: meter constructor failed — plugin disabled");
+        return 0;
+    }
+
+    /* 2. Depend on a hardware resource */
+    priv->fd = open("/dev/something", O_RDWR, 0);
+    if (priv->fd < 0) {
+        g_message("myplugin: /dev/something not available — plugin disabled");
+        return 0;
+    }
+
+    /* ... normal initialisation ... */
+    return 1;
+}
+```
+
+### Message format convention
+
+```
+<plugin-type>: <reason> — plugin disabled
+```
+
+Examples from the built-in plugins:
+
+| Plugin | Condition | Message |
+|--------|-----------|---------|
+| `volume` | `/dev/mixer` not present | `volume: /dev/mixer not available — plugin disabled` |
+| `volume` | `meter` class missing | `volume: 'meter' plugin unavailable — plugin disabled` |
+| `battery` | `meter` class missing | `battery: 'meter' plugin unavailable — plugin disabled` |
+| `cpu` | `chart` class missing | `cpu: 'chart' plugin unavailable — plugin disabled` |
+| `net` | `chart` class missing | `net: 'chart' plugin unavailable — plugin disabled` |
+| `mem2` | `chart` class missing | `mem2: 'chart' plugin unavailable — plugin disabled` |
+| `user` | `menu` class missing | `user: 'menu' plugin unavailable — plugin disabled` |
+
+### How the panel handles constructor failure (panel.c)
+
+```c
+if (!plugin_start(plug)) {
+    g_message("fbpanel: plugin '%s' failed to start — skipping", type);
+    plugin_put(plug);   /* cleanly unloads the .so */
+    return;             /* continue with next plugin */
+}
+```
+
+No `exit()` is called.  A failed plugin produces one log line and is
+skipped; the rest of the panel is unaffected.

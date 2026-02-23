@@ -447,15 +447,21 @@ volume_constructor(plugin_instance *p)
 {
     volume_priv *c;
 
-    if (!(k = class_get("meter")))
+    if (!(k = class_get("meter"))) {
+        g_message("volume: 'meter' plugin unavailable — plugin disabled");
         RET(0);
-    if (!PLUGIN_CLASS(k)->constructor(p))
+    }
+    if (!PLUGIN_CLASS(k)->constructor(p)) {
+        g_message("volume: meter constructor failed — plugin disabled");
         RET(0);
+    }
     c = (volume_priv *) p;
 
-    /* Open the OSS mixer device.                                          */
+    /* Open the OSS mixer device.  Soft-fail if not available (e.g. on
+     * systems without OSS/ALSA, inside containers, or VMs with no audio).
+     * The panel continues running; only this plugin is skipped.           */
     if ((c->fd = open ("/dev/mixer", O_RDWR, 0)) < 0) {
-        ERR("volume: can't open /dev/mixer\n");
+        g_message("volume: /dev/mixer not available — plugin disabled");
         RET(0);
     }
 

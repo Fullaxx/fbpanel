@@ -197,12 +197,15 @@ battery_constructor(plugin_instance *p)
     ENTER;
     // Obtain the meter plugin class vtable; increments the class reference count.
     // Must be balanced by class_put("meter") in battery_destructor().
-    if (!(k = class_get("meter")))
-        RET(0); // "meter" plugin not loaded or unavailable
-
+    if (!(k = class_get("meter"))) {
+        g_message("battery: 'meter' plugin unavailable — plugin disabled");
+        RET(0);
+    }
     // Initialise the embedded meter (creates GtkImage and sets up icon infrastructure).
-    if (!PLUGIN_CLASS(k)->constructor(p))
-        RET(0); // meter constructor failed (e.g. widget creation failed)
+    if (!PLUGIN_CLASS(k)->constructor(p)) {
+        g_message("battery: meter constructor failed — plugin disabled");
+        RET(0);
+    }
 
     // Cast p to our private type; safe because battery_priv begins with meter_priv
     // which begins with plugin_instance.

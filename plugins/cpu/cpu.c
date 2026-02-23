@@ -213,10 +213,14 @@ cpu_constructor(plugin_instance *p)
 {
     cpu_priv *c;
 
-    if (!(k = class_get("chart")))   /* obtain shared chart plugin class */
+    if (!(k = class_get("chart"))) {   /* obtain shared chart plugin class */
+        g_message("cpu: 'chart' plugin unavailable — plugin disabled");
         RET(0);
-    if (!PLUGIN_CLASS(k)->constructor(p))   /* build chart widget on p->pwid */
+    }
+    if (!PLUGIN_CLASS(k)->constructor(p)) {   /* build chart widget on p->pwid */
+        g_message("cpu: chart constructor failed — plugin disabled");
         RET(0);
+    }
     c = (cpu_priv *) p;
     c->colors[0] = "green";
     XCG(p->xc, "Color", &c->colors[0], str);   /* optional config override */

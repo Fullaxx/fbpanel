@@ -202,15 +202,19 @@ user_constructor(plugin_instance *p)
 
     ENTER;
     /* Load the "menu" plugin class (increments its reference count) */
-    if (!(k = class_get("menu")))
-        RET(0);   /* "menu" plugin unavailable; can't proceed */
+    if (!(k = class_get("menu"))) {
+        g_message("user: 'menu' plugin unavailable — plugin disabled");
+        RET(0);
+    }
 
     XCG(p->xc, "image", &image, str);   /* check for configured image path */
     XCG(p->xc, "icon", &icon, str);     /* check for configured icon name */
     if (!(image || icon))
         XCS(p->xc, "icon", "avatar-default", value);  /* default icon if nothing set */
-    if (!PLUGIN_CLASS(k)->constructor(p))
-        RET(0);   /* menu constructor failed */
+    if (!PLUGIN_CLASS(k)->constructor(p)) {
+        g_message("user: menu constructor failed — plugin disabled");
+        RET(0);
+    }
 
     XCG(p->xc, "gravataremail", &gravatar, str);
     DBG("gravatar email '%s'\n", gravatar);

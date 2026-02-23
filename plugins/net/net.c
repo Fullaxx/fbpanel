@@ -443,12 +443,15 @@ net_constructor(plugin_instance *p)
     net_priv *c;
 
     /* Load the chart plugin class; it is used as the rendering backend. */
-    if (!(k = class_get("chart")))
+    if (!(k = class_get("chart"))) {
+        g_message("net: 'chart' plugin unavailable — plugin disabled");
         RET(0);
-
+    }
     /* Let the chart plugin initialise the base widget. */
-    if (!PLUGIN_CLASS(k)->constructor(p))
+    if (!PLUGIN_CLASS(k)->constructor(p)) {
+        g_message("net: chart constructor failed — plugin disabled");
         RET(0);
+    }
 
     c = (net_priv *) p;
 
