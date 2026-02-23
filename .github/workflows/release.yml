@@ -44,6 +44,18 @@ jobs:
             pkg_gen: RPM
             pkg_ext: rpm
             libdir: lib64
+          - distro: fedora42
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
+          - distro: fedora41
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
+          - distro: fedora40
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
 
     steps:
       - name: Checkout

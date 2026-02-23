@@ -31,6 +31,12 @@ jobs:
             libdir: lib
           - distro: fedora43
             libdir: lib64
+          - distro: fedora42
+            libdir: lib64
+          - distro: fedora41
+            libdir: lib64
+          - distro: fedora40
+            libdir: lib64
 
     steps:
       - name: Checkout
