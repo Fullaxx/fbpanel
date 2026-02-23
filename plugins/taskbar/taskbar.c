@@ -1640,7 +1640,7 @@ tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
     /* "All workspaces" sticky option */
     mi = gtk_image_menu_item_new_with_label(_("All workspaces"));
     g_object_set_data(G_OBJECT(mi), "num", GINT_TO_POINTER(ALL_WORKSPACES));
-    g_signal_connect(mi, "activate",
+    g_signal_connect(G_OBJECT(mi), "button_press_event",
         (GCallback)send_to_workspace, tb);
     gtk_menu_shell_append (GTK_MENU_SHELL (submenu), mi);
     gtk_widget_show_all(submenu);

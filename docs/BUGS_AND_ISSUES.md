@@ -346,6 +346,53 @@ When `update_view` has reset `m->cur_icon` to −1, the guard is `FALSE` and
 
 ---
 
+### BUG-017 — "All workspaces" menu item uses wrong signal, causing SIGSEGV
+
+**File:** `plugins/taskbar/taskbar.c` — `tb_make_menu()`
+**Severity:** CRASH
+**Status:** Fixed
+
+**Symptom:** Right-clicking a taskbar button, then selecting
+"Move to workspace → All workspaces" causes an immediate SIGSEGV.
+
+**Root cause:** The callback `send_to_workspace` is designed for the
+`button_press_event` signal, which passes three arguments to the handler:
+`(GtkWidget *widget, GdkEventButton *event, gpointer user_data)`.
+The function signature matches this exactly:
+
+```c
+static void send_to_workspace(GtkWidget *widget, void *iii, taskbar_priv *tb)
+```
+
+Every numbered workspace item in the submenu correctly connects to
+`"button_press_event"`.  However, the "All workspaces" item at the bottom of
+the same submenu connects to `"activate"` instead:
+
+```c
+/* BUG: activate only provides (widget, user_data) — two args, not three */
+g_signal_connect(mi, "activate", (GCallback)send_to_workspace, tb);
+```
+
+The `"activate"` signal provides only `(widget, user_data)`.  With the
+SysV x86-64 ABI, this means:
+
+- `rdi` → `widget`  (menu item)
+- `rsi` → `tb`      (user_data, interpreted as the `void *iii` event slot)
+- `rdx` → **garbage** (never set by GTK, read as the `taskbar_priv *tb` arg)
+
+`send_to_workspace` then calls `tb->menutask->win` where `tb` is the garbage
+value in `rdx` → SIGSEGV.
+
+**Fix applied:** Changed `"activate"` to `"button_press_event"` for the
+"All workspaces" item, consistent with every other item in the submenu:
+
+```c
+g_signal_connect(G_OBJECT(mi), "button_press_event",
+    (GCallback)send_to_workspace, tb);
+```
+
+---
+
 ## Summary Table
 
 | ID       | File                          | Severity        | Status  | Description                                           |
@@ -366,3 +413,4 @@ When `update_view` has reset `m->cur_icon` to −1, the guard is `FALSE` and
 | BUG-014  | plugins/wincmd/wincmd.c       | DEAD CODE       | Fixed   | `pix`/`mask` fields never populated; dead destructor  |
 | BUG-015  | plugins/meter/meter.c         | LOGIC ERROR     | Fixed   | `update_view` always short-circuits; icons never reload on theme change |
 | BUG-016  | plugins/volume/volume.c       | CRASH           | Fixed   | `meter_destructor` not called on `/dev/mixer` failure → use-after-free |
+| BUG-017  | plugins/taskbar/taskbar.c     | CRASH           | Fixed   | "All workspaces" item connects `activate` instead of `button_press_event` → wrong signal arity → SIGSEGV |
