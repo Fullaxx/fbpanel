@@ -1,3 +1,47 @@
+/*
+ * taskbar.c -- fbpanel taskbar plugin.
+ *
+ * Displays one button per open window, allowing raise/iconify/menu actions.
+ * Modified 2006-09-10 by Hong Jen Yee (PCMan) to add XUrgencyHint support.
+ *
+ * Data structures:
+ *   task       — per-window state: button widget, name, icon, focus/flash.
+ *   taskbar_priv — plugin state: GHashTable of tasks, GtkBar, config options.
+ *
+ * Event sources:
+ *   FbEv signals: current_desktop, active_window, number_of_desktops,
+ *                 client_list, desktop_names.
+ *   GDK filter: tb_event_filter() handles PropertyNotify on client windows
+ *     (window name, icon, state, type, desktop, urgency changes).
+ *
+ * Rendering:
+ *   Each task has a GtkButton containing an image and (optionally) a label.
+ *   The GtkBar widget lays buttons in a grid; taskbar_size_alloc recomputes
+ *   the number of rows/columns when the widget is resized.
+ *
+ * Urgency (XUrgencyHint):
+ *   When a window sets the urgency hint, tk_flash_window() starts a timeout
+ *   that alternates the button's state between GTK_STATE_SELECTED and
+ *   normal, creating a flashing effect.
+ *
+ * Mouse behaviour:
+ *   LMB release: raise (or iconify if already focused).
+ *   MMB: toggle shaded.
+ *   RMB: popup context menu (Raise / Iconify / Move to workspace / Close).
+ *   Scroll up: map+raise; scroll down: iconify.
+ *   Drag motion with delay: activate window after DRAG_ACTIVE_DELAY ms.
+ *   Ctrl+RMB: pass to panel (suppress matching release).
+ *
+ * Known bugs:
+ *   BUG: "number_of_desktops" FbEv signal is connected to BOTH
+ *     tb_net_number_of_desktops (display refresh) AND tb_make_menu (menu
+ *     rebuild), but only tb_net_number_of_desktops is disconnected in the
+ *     destructor.  The "desktop_names" → tb_make_menu connection is also
+ *     never disconnected.  These leaked connections fire after the plugin
+ *     is destroyed, causing use-after-free.
+ *   BUG: use_net_active is a file-scope static — shared across all taskbar
+ *     instances.  Multiple taskbar instances would interfere.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -5,7 +49,6 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-//#include <X11/xpm.h>
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk-pixbuf-xlib/gdk-pixbuf-xlib.h>
@@ -19,16 +62,37 @@
 #include "data/images/default.xpm"
 #include "gtkbar.h"
 
-/*
- * 2006.09.10 modified by Hong Jen Yee (PCMan) pcman.tw (AT) gmail.com
- * Following features are added:
- * 1. Add XUrgencyHint support. (Flashing task bar buttons, can be disabled)
- */
-
 //#define DEBUGPRN
 #include "dbg.h"
 
 struct _taskbar;
+
+/*
+ * task -- state for one managed window.
+ *
+ * tb             - back-pointer to taskbar_priv.
+ * win            - X11 Window ID.
+ * name           - window title with leading/trailing space " title ".
+ * iname          - iconified title "[title]".
+ * button         - GtkButton widget representing this task.
+ * label          - GtkLabel inside button (only if !icons_only).
+ * eb             - unused (reserved for event box).
+ * image          - GtkImage showing the task icon.
+ * pixbuf         - task icon pixbuf (always non-NULL after tk_build_gui).
+ * refcount       - stale-task detection counter.
+ * ch             - XClassHint (unused currently).
+ * pos_x,width    - not used for layout (GtkBar handles that).
+ * desktop        - virtual desktop (0-based; 0xFFFFFFFF = all desktops).
+ * nws            - _NET_WM_STATE flags (hidden, skip_taskbar, etc.).
+ * nwwt           - _NET_WM_WINDOW_TYPE flags (desktop, dock, splash).
+ * flash_timeout  - GLib source ID for urgency flashing; 0 if not flashing.
+ * focused        - 1 if this is the currently active window.
+ * iconified      - 1 if the window is minimised.
+ * urgency        - 1 if the window has XUrgencyHint set.
+ * using_netwm_icon - 1 if pixbuf came from _NET_WM_ICON.
+ * flash          - 1 if flashing is active.
+ * flash_state    - current flash phase (0/1).
+ */
 typedef struct _task{
     struct _taskbar *tb;
     Window win;
@@ -55,6 +119,32 @@ typedef struct _task{
 
 
 
+/*
+ * taskbar_priv -- private state for one taskbar plugin instance.
+ *
+ * plugin          - embedded plugin_instance (MUST be first).
+ * wins            - XFree-able window list from _NET_CLIENT_LIST.
+ * topxwin         - panel's top-level X11 Window ID (to detect own focus).
+ * win_num         - number of entries in wins.
+ * task_list       - GHashTable mapping Window → task*.
+ * hbox,bar,space  - layout widgets (bar = GtkBar; space unused).
+ * menu            - right-click context menu (rebuilt on each desktop-names change).
+ * gen_pixbuf      - default application icon (from default.xpm).
+ * normal_state    - GTK state for unfocused buttons (GTK_STATE_NORMAL).
+ * focused_state   - GTK state for focused button (GTK_STATE_ACTIVE).
+ * num_tasks       - total number of tracked tasks.
+ * task_width_max  - maximum button width (config; default TASK_WIDTH_MAX).
+ * task_height_max - maximum button height (from panel->max_elem_height, capped at TASK_HEIGHT_MAX).
+ * accept_skip_pager - if 1, also suppress skip_pager windows.
+ * show_iconified  - if 1, show minimised windows.
+ * show_mapped     - if 1, show mapped (visible) windows.
+ * show_all_desks  - if 1, show windows from all desktops.
+ * tooltips        - if 1, set button tooltip to window name.
+ * icons_only      - if 1, show only the icon (no label).
+ * use_mouse_wheel - if 1, scroll events map/iconify windows.
+ * use_urgency_hint - if 1, flash urgent windows.
+ * discard_release_event - set after Ctrl+RMB to eat the matching release.
+ */
 typedef struct _taskbar{
     plugin_instance plugin;
     Window *wins;
@@ -96,6 +186,7 @@ typedef struct _taskbar{
 } taskbar_priv;
 
 
+/* RC string: removes button focus rings and padding for a flat taskbar look */
 static gchar *taskbar_rc = "style 'taskbar-style'\n"
 "{\n"
 "GtkWidget::focus-line-width = 0\n"
@@ -107,15 +198,21 @@ static gchar *taskbar_rc = "style 'taskbar-style'\n"
 "}\n"
 "widget '*.taskbar.*' style 'taskbar-style'";
 
+/*
+ * use_net_active -- whether the WM supports _NET_ACTIVE_WINDOW.
+ *
+ * BUG: file-scope static shared across all taskbar instances.
+ * Set once by net_active_detect() called from taskbar_constructor.
+ */
 static gboolean use_net_active=FALSE;
 
+/* Delay before activating a window during drag-over (prevents accidental switch) */
 #define DRAG_ACTIVE_DELAY       1000
- 
 
 
-#define TASK_WIDTH_MAX   200
-#define TASK_HEIGHT_MAX  28
-#define TASK_PADDING     4
+#define TASK_WIDTH_MAX   200   /* default maximum task button width in pixels */
+#define TASK_HEIGHT_MAX  28    /* hard cap on task button height */
+#define TASK_PADDING     4     /* unused; kept for reference */
 static void tk_display(taskbar_priv *tb, task *tk);
 static void tb_propertynotify(taskbar_priv *tb, XEvent *ev);
 static GdkFilterReturn tb_event_filter( XEvent *, GdkEvent *, taskbar_priv *);
@@ -127,9 +224,21 @@ static void tk_flash_window( task *tk );
 static void tk_unflash_window( task *tk );
 static void tk_raise_window( task *tk, guint32 time );
 
+/*
+ * TASK_VISIBLE macro -- simple desktop visibility check.
+ *
+ * A task is visible on the current desktop if its desktop matches
+ * cur_desk or it is sticky (desktop == -1 / 0xFFFFFFFF).
+ * Note: task_visible() is a superset that also checks iconified/mapped flags.
+ */
 #define TASK_VISIBLE(tb, tk) \
  ((tk)->desktop == (tb)->cur_desk || (tk)->desktop == -1 /* 0xFFFFFFFF */ )
 
+/*
+ * task_visible -- full visibility check honouring all show_* config flags.
+ *
+ * Returns non-zero if this task should have a visible button.
+ */
 static int
 task_visible(taskbar_priv *tb, task *tk)
 {
@@ -141,6 +250,12 @@ task_visible(taskbar_priv *tb, task *tk)
             || (!tk->iconified && tb->show_mapped)) );
 }
 
+/*
+ * accept_net_wm_state -- filter based on _NET_WM_STATE flags.
+ *
+ * Returns 0 if the window should be excluded (skip_taskbar, or skip_pager
+ * when accept_skip_pager is non-zero).
+ */
 inline static int
 accept_net_wm_state(net_wm_state *nws, int accept_skip_pager)
 {
@@ -153,6 +268,12 @@ accept_net_wm_state(net_wm_state *nws, int accept_skip_pager)
     RET(!(nws->skip_taskbar || (accept_skip_pager && nws->skip_pager)));
 }
 
+/*
+ * accept_net_wm_window_type -- filter based on _NET_WM_WINDOW_TYPE flags.
+ *
+ * Returns 0 for windows that should never appear in the taskbar
+ * (desktop, dock, splash windows).
+ */
 inline static int
 accept_net_wm_window_type(net_wm_window_type *nwwt)
 {
@@ -165,6 +286,12 @@ accept_net_wm_window_type(net_wm_window_type *nwwt)
 
 
 
+/*
+ * tk_free_names -- free the name and iname strings for a task.
+ *
+ * Both strings are allocated together (alloc_no tracks the count).
+ * Logs a warning if only one is allocated (inconsistent state).
+ */
 static void
 tk_free_names(task *tk)
 {
@@ -182,6 +309,13 @@ tk_free_names(task *tk)
     RET();
 }
 
+/*
+ * tk_get_names -- fetch window title and format name / iname strings.
+ *
+ * Tries _NET_WM_NAME (UTF-8) first, then falls back to XA_WM_NAME.
+ * name  = " title "   (with surrounding spaces for button layout).
+ * iname = "[title]"   (iconified display format).
+ */
 static void
 tk_get_names(task *tk)
 {
@@ -196,14 +330,20 @@ tk_get_names(task *tk)
         DBG("XA_WM_NAME:%s\n", name);
     }
     if (name) {
-        tk->name = g_strdup_printf(" %s ", name);
-        tk->iname = g_strdup_printf("[%s]", name);
+        tk->name  = g_strdup_printf(" %s ", name);    /* padded for button label */
+        tk->iname = g_strdup_printf("[%s]", name);    /* iconified format */
         g_free(name);
         tk->tb->alloc_no++;
     }
     RET();
 }
 
+/*
+ * tk_set_names -- update the button label to reflect iconified state.
+ *
+ * Uses tk->iname when iconified, tk->name otherwise.
+ * Also updates the tooltip if tooltips are enabled.
+ */
 static void
 tk_set_names(task *tk)
 {
@@ -220,6 +360,11 @@ tk_set_names(task *tk)
 
 
 
+/*
+ * find_task -- look up a task by Window ID.
+ *
+ * Returns: task* or NULL if not found.
+ */
 static task *
 find_task (taskbar_priv * tb, Window win)
 {
@@ -228,13 +373,24 @@ find_task (taskbar_priv * tb, Window win)
 }
 
 
+/*
+ * del_task -- remove a task from the taskbar.
+ *
+ * Stops any flash timeout, destroys the button widget, frees names,
+ * clears focused pointer, and optionally removes from the hash table.
+ *
+ * Parameters:
+ *   tb   - taskbar_priv.
+ *   tk   - task to delete.
+ *   hdel - if non-zero, remove from tb->task_list hash table.
+ */
 static void
 del_task (taskbar_priv * tb, task *tk, int hdel)
 {
     ENTER;
     DBG("deleting(%d)  %08x %s\n", hdel, tk->win, tk->name);
     if (tk->flash_timeout)
-        g_source_remove(tk->flash_timeout);
+        g_source_remove(tk->flash_timeout);   /* stop urgency flash timer */
     gtk_widget_destroy(tk->button);
     tb->num_tasks--;
     tk_free_names(tk);
@@ -248,6 +404,12 @@ del_task (taskbar_priv * tb, task *tk, int hdel)
 
 
 
+/*
+ * get_cmap -- get (and ref) the colormap for a pixmap.
+ *
+ * Handles the GTK 2.0.2 bug where depth-1 drawables have no colormap.
+ * Returns: colormap (caller must g_object_unref), or NULL.
+ */
 static GdkColormap*
 get_cmap (GdkPixmap *pixmap)
 {
@@ -262,19 +424,18 @@ get_cmap (GdkPixmap *pixmap)
     {
       if (gdk_drawable_get_depth (pixmap) == 1)
         {
-          /* try null cmap */
-          cmap = NULL;
+          cmap = NULL;   /* 1-bit bitmaps don't need a colormap */
         }
       else
         {
-          /* Try system cmap */
+          /* use the screen system colormap as fallback */
           GdkScreen *screen = gdk_drawable_get_screen (GDK_DRAWABLE (pixmap));
           cmap = gdk_screen_get_system_colormap (screen);
           g_object_ref (G_OBJECT (cmap));
         }
     }
 
-  /* Be sure we aren't going to blow up due to visual mismatch */
+  /* ensure colormap visual depth matches drawable depth */
   if (cmap &&
       (gdk_colormap_get_visual (cmap)->depth !=
        gdk_drawable_get_depth (pixmap)))
@@ -283,6 +444,14 @@ get_cmap (GdkPixmap *pixmap)
   RET(cmap);
 }
 
+/*
+ * _wnck_gdk_pixbuf_get_from_pixmap -- wrap gdk_pixbuf_get_from_drawable.
+ *
+ * Looks up the GDK wrapper for @xpixmap, creates a foreign pixmap wrapper
+ * if not already tracked, reads pixels with the correct colormap.
+ *
+ * Returns: GdkPixbuf* (caller owns reference) or NULL on failure.
+ */
 static GdkPixbuf*
 _wnck_gdk_pixbuf_get_from_pixmap (GdkPixbuf   *dest,
                                   Pixmap       xpixmap,
@@ -309,9 +478,7 @@ _wnck_gdk_pixbuf_get_from_pixmap (GdkPixbuf   *dest,
 
     cmap = get_cmap (drawable);
 
-    /* GDK is supposed to do this but doesn't in GTK 2.0.2,
-     * fixed in 2.0.3
-     */
+    /* GTK 2.0.2 workaround: doesn't populate width/height correctly */
     if (width < 0)
         gdk_drawable_get_size (drawable, &width, NULL);
     if (height < 0)
@@ -331,6 +498,14 @@ _wnck_gdk_pixbuf_get_from_pixmap (GdkPixbuf   *dest,
     RET(retval);
 }
 
+/*
+ * apply_mask -- apply a 1-bit mask pixbuf as the alpha channel.
+ *
+ * Creates a new RGBA pixbuf, then for each pixel copies R/G/B from
+ * @pixbuf and sets alpha to 255 (opaque) or 0 (transparent) from @mask.
+ *
+ * Returns: new GdkPixbuf with alpha (caller owns reference).
+ */
 static GdkPixbuf*
 apply_mask (GdkPixbuf *pixbuf,
             GdkPixbuf *mask)
@@ -364,9 +539,7 @@ apply_mask (GdkPixbuf *pixbuf,
           guchar *s = src + i * src_stride + j * 3;
           guchar *d = dest + i * dest_stride + j * 4;
 
-          /* s[0] == s[1] == s[2], they are 255 if the bit was set, 0
-           * otherwise
-           */
+          /* mask pixel s[0]==s[1]==s[2]: 0 = transparent, 255 = opaque */
           if (s[0] == 0)
             d[3] = 0;   /* transparent */
           else
@@ -382,6 +555,9 @@ apply_mask (GdkPixbuf *pixbuf,
 }
 
 
+/*
+ * free_pixels -- GdkPixbuf destroy callback that g_free's the pixel buffer.
+ */
 static void
 free_pixels (guchar *pixels, gpointer data)
 {
@@ -391,6 +567,14 @@ free_pixels (guchar *pixels, gpointer data)
 }
 
 
+/*
+ * argbdata_to_pixdata -- convert _NET_WM_ICON ARGB data to GdkPixbuf RGBA.
+ *
+ * _NET_WM_ICON stores 32-bit ARGB (alpha in high byte).
+ * GdkPixbuf expects 32-bit RGBA (alpha in low byte).
+ *
+ * Returns: newly allocated byte array (freed by free_pixels callback).
+ */
 static guchar *
 argbdata_to_pixdata (gulong *argb_data, int len)
 {
@@ -401,7 +585,7 @@ argbdata_to_pixdata (gulong *argb_data, int len)
     ret = p = g_new (guchar, len * 4);
     if (!ret)
         RET(NULL);
-    /* One could speed this up a lot. */
+    /* convert ARGB → RGBA by rotating the alpha byte */
     i = 0;
     while (i < len) {
         guint32 argb;
@@ -410,13 +594,13 @@ argbdata_to_pixdata (gulong *argb_data, int len)
         argb = argb_data[i];
         rgba = (argb << 8) | (argb >> 24);
 
-        *p = rgba >> 24;
+        *p = rgba >> 24;         /* R */
         ++p;
-        *p = (rgba >> 16) & 0xff;
+        *p = (rgba >> 16) & 0xff;  /* G */
         ++p;
-        *p = (rgba >> 8) & 0xff;
+        *p = (rgba >> 8) & 0xff;   /* B */
         ++p;
-        *p = rgba & 0xff;
+        *p = rgba & 0xff;          /* A */
         ++p;
 
         ++i;
@@ -424,27 +608,14 @@ argbdata_to_pixdata (gulong *argb_data, int len)
     RET(ret);
 }
 
-#if 0
-GdkPixbuf *
-gdk_pixbuf_scale_ratio(GdkPixbuf *p, int width, int height, GdkInterpType itype)
-{
-    gfloat w, h, rw, rh;
 
-    w = gdk_pixbuf_get_width(p);
-    h = gdk_pixbuf_get_height(p);
-    rw = w / width;
-    rh = h / height;
-    if (rw > rh)
-        height = h / rw;
-    else
-        width =  w / rh;
-    return  gdk_pixbuf_scale_simple(p, width, height, itype);
-
-}
-#endif
-
-
-
+/*
+ * get_netwm_icon -- fetch _NET_WM_ICON and scale to iw×ih pixels.
+ *
+ * Validates size (min 16×16, max 256×256) and converts ARGB → RGBA.
+ *
+ * Returns: GdkPixbuf* (caller owns reference) or NULL.
+ */
 static GdkPixbuf *
 get_netwm_icon(Window tkwin, int iw, int ih)
 {
@@ -460,42 +631,14 @@ get_netwm_icon(Window tkwin, int iw, int ih)
     if (!data)
         RET(NULL);
 
-    /* loop through all icons in data to find best fit */
-    if (0) {
-        gulong *tmp;
-        int len;
-
-        len = n/sizeof(gulong);
-        tmp = data;
-        while (len > 2) {
-            int size = tmp[0] * tmp[1];
-            DBG("sub-icon: %dx%d %d bytes\n", tmp[0], tmp[1], size * 4);
-            len -= size + 2;
-            tmp += size;
-        }
-    }
-
-    if (0) {
-        int i, j, nn;
-
-        nn = MIN(10, n);
-        p = (guchar *) data;
-        for (i = 0; i < nn; i++) {
-            for (j = 0; j < sizeof(gulong); j++)
-                ERR("%02x ", (guint) p[i*sizeof(gulong) + j]);
-            ERR("\n");
-        }
-    }
-
-    /* check that data indeed represents icon in w + h + ARGB[] format
-     * with 16x16 dimension at least */
+    /* validate minimum size: need at least w + h + 16*16 longs */
     if (n < (16 * 16 + 1 + 1)) {
         ERR("win %lx: icon is too small or broken (size=%d)\n", tkwin, n);
         goto out;
     }
     w = data[0];
     h = data[1];
-    /* check that sizes are in 64-256 range */
+    /* reject unreasonably sized icons */
     if (w < 16 || w > 256 || h < 16 || h > 256) {
         ERR("win %lx: icon size (%d, %d) is not in 64-256 range\n",
             tkwin, w, h);
@@ -521,6 +664,14 @@ out:
     RET(ret);
 }
 
+/*
+ * get_wm_icon -- fetch classic WM_HINTS icon pixmap and scale to iw×ih.
+ *
+ * Used as fallback when _NET_WM_ICON is not available.
+ * Applies the mask pixmap as alpha channel if one is provided.
+ *
+ * Returns: GdkPixbuf* (caller owns reference) or NULL.
+ */
 static GdkPixbuf *
 get_wm_icon(Window tkwin, int iw, int ih)
 {
@@ -557,6 +708,7 @@ get_wm_icon(Window tkwin, int iw, int ih)
     pixmap = _wnck_gdk_pixbuf_get_from_pixmap (NULL, xpixmap, 0, 0, 0, 0, w, h);
     if (!pixmap)
         RET(NULL);
+    /* apply mask as alpha if a mask pixmap was given */
     if (xmask != None && XGetGeometry (GDK_DISPLAY(), xmask,
               &win, &sd, &sd, &w, &h, (guint *)&sd, (guint *)&sd)) {
         mask = _wnck_gdk_pixbuf_get_from_pixmap (NULL, xmask, 0, 0, 0, 0, w, h);
@@ -576,6 +728,11 @@ get_wm_icon(Window tkwin, int iw, int ih)
     RET(ret);
 }
 
+/*
+ * get_generic_icon -- return a ref to the shared default icon.
+ *
+ * Always succeeds.  Caller must g_object_unref the returned pixbuf.
+ */
 inline static GdkPixbuf*
 get_generic_icon(taskbar_priv *tb)
 {
@@ -584,6 +741,18 @@ get_generic_icon(taskbar_priv *tb)
     RET(tb->gen_pixbuf);
 }
 
+/*
+ * tk_update_icon -- refresh the icon for a task.
+ *
+ * If @a is a_NET_WM_ICON or None, attempts to re-fetch the netwm icon.
+ * Falls back to WM_HINTS icon, then to the generic icon.
+ * Unrefs the old pixbuf if it changed.
+ *
+ * Parameters:
+ *   tb - taskbar_priv.
+ *   tk - task whose icon should be updated.
+ *   a  - atom that changed (None = refresh everything).
+ */
 static void
 tk_update_icon (taskbar_priv *tb, task *tk, Atom a)
 {
@@ -602,18 +771,25 @@ tk_update_icon (taskbar_priv *tb, task *tk, Atom a)
         DBGE("wm_icon=%d ", (tk->pixbuf != NULL));
     }
     if (!tk->pixbuf) {
-        tk->pixbuf = get_generic_icon(tb); // always exists
+        tk->pixbuf = get_generic_icon(tb);   /* always non-NULL */
         DBGE("generic_icon=1");
     }
     if (pixbuf != tk->pixbuf) {
         if (pixbuf)
-            g_object_unref(pixbuf);
+            g_object_unref(pixbuf);   /* release old pixbuf */
     }
     DBGE(" %dx%d \n", gdk_pixbuf_get_width(tk->pixbuf),
         gdk_pixbuf_get_height(tk->pixbuf));
     RET();
 }
 
+/*
+ * on_flash_win -- GLib timer callback: toggle flash state and update button colour.
+ *
+ * Alternates the button between GTK_STATE_SELECTED and normal_state.
+ *
+ * Returns: TRUE (keep the timer running).
+ */
 static gboolean
 on_flash_win( task *tk )
 {
@@ -624,6 +800,13 @@ on_flash_win( task *tk )
     return TRUE;
 }
 
+/*
+ * tk_flash_window -- start urgency flashing for a task.
+ *
+ * Reads the GTK cursor blink interval from settings and starts a timeout
+ * that calls on_flash_win() at that rate.  Idempotent: does nothing if
+ * already flashing.
+ */
 static void
 tk_flash_window( task *tk )
 {
@@ -631,12 +814,15 @@ tk_flash_window( task *tk )
     tk->flash = 1;
     tk->flash_state = !tk->flash_state;
     if (tk->flash_timeout)
-        return;
+        return;   /* already flashing */
     g_object_get( gtk_widget_get_settings(tk->button),
           "gtk-cursor-blink-time", &interval, NULL );
     tk->flash_timeout = g_timeout_add(interval, (GSourceFunc)on_flash_win, tk);
 }
 
+/*
+ * tk_unflash_window -- stop urgency flashing and restore button state.
+ */
 static void
 tk_unflash_window( task *tk )
 {
@@ -647,10 +833,22 @@ tk_unflash_window( task *tk )
     }
 }
 
+/*
+ * tk_raise_window -- raise and focus a window.
+ *
+ * Switches to the window's desktop if needed.  If the WM supports
+ * _NET_ACTIVE_WINDOW, sends a client message; otherwise uses
+ * XRaiseWindow + XSetInputFocus.
+ *
+ * Parameters:
+ *   tk   - task to raise.
+ *   time - X11 event timestamp for _NET_ACTIVE_WINDOW.
+ */
 static void
 tk_raise_window( task *tk, guint32 time )
 {
     if (tk->desktop != -1 && tk->desktop != tk->tb->cur_desk){
+        /* switch to the window's desktop first */
         Xclimsg(GDK_ROOT_WINDOW(), a_NET_CURRENT_DESKTOP, tk->desktop,
             0, 0, 0, 0);
         XSync (gdk_display, False);
@@ -665,6 +863,12 @@ tk_raise_window( task *tk, guint32 time )
     DBG("XRaiseWindow %x\n", tk->win);
 }
 
+/*
+ * tk_callback_leave/enter -- restore button state on pointer enter/leave.
+ *
+ * GTK changes button state on enter/leave; we override it to use
+ * focused_state or normal_state based on keyboard focus.
+ */
 static void
 tk_callback_leave( GtkWidget *widget, task *tk)
 {
@@ -684,14 +888,26 @@ tk_callback_enter( GtkWidget *widget, task *tk )
     RET();
 }
 
+/*
+ * delay_active_win -- GLib timeout callback: raise window after drag delay.
+ *
+ * Called DRAG_ACTIVE_DELAY ms after a drag-motion event to activate the
+ * window being dragged over (so the user can drop onto it).
+ */
 static gboolean
 delay_active_win(task* tk)
 {
     tk_raise_window(tk, CurrentTime);
     tk->tb->dnd_activate = 0;
-    return FALSE;
+    return FALSE;   /* one-shot */
 }
 
+/*
+ * tk_callback_drag_motion -- activate window after DRAG_ACTIVE_DELAY ms.
+ *
+ * Starts the delay timer on the first motion event; subsequent events
+ * are ignored until the timer fires.
+ */
 static gboolean
 tk_callback_drag_motion( GtkWidget *widget,
       GdkDragContext *drag_context,
@@ -707,6 +923,9 @@ tk_callback_drag_motion( GtkWidget *widget,
     return TRUE;
 }
 
+/*
+ * tk_callback_drag_leave -- cancel the drag-activation timer.
+ */
 static void
 tk_callback_drag_leave (GtkWidget *widget,
       GdkDragContext *drag_context,
@@ -719,43 +938,13 @@ tk_callback_drag_leave (GtkWidget *widget,
     return;
 }
 
-#if 0
-static gboolean
-tk_callback_expose(GtkWidget *widget, GdkEventExpose *event, task *tk)
-{
-    GtkStateType state;
-    ENTER;
-    state = (tk->focused) ? tk->tb->focused_state : tk->tb->normal_state;
-    if (GTK_WIDGET_STATE(widget) != state) {
-        gtk_widget_set_state(widget, state);
-        gtk_widget_queue_draw(widget);
-    } else {
-        if( ! tk->flash || 0 == tk->flash_state ) {
-            gtk_paint_box (widget->style, widget->window,
-                  state,
-                  (tk->focused) ? GTK_SHADOW_IN : GTK_SHADOW_OUT,
-                  &event->area, widget, "button",
-                  widget->allocation.x, widget->allocation.y,
-                  widget->allocation.width, widget->allocation.height);
-        } else {
-            gdk_draw_rectangle( widget->window,
-                                widget->style->bg_gc[GTK_STATE_SELECTED],
-                                TRUE, 0, 0,
-                                widget->allocation.width,
-                                widget->allocation.height );
-        }
-        /*
-        _gtk_button_paint(GTK_BUTTON(widget), &event->area, state,
-              (tk->focused) ? GTK_SHADOW_IN : GTK_SHADOW_OUT,
-              "button",  "buttondefault");
-        */
-        gtk_container_propagate_expose(GTK_CONTAINER(widget),
-            GTK_BIN(widget)->child, event);
-    }
-    RET(FALSE);
-}
-#endif
-
+/*
+ * tk_callback_scroll_event -- mouse-wheel handler.
+ *
+ * Scroll up: map and raise the window (un-iconify).
+ * Scroll down: iconify the window.
+ * Only active when use_mouse_wheel is set.
+ */
 static gint
 tk_callback_scroll_event (GtkWidget *widget, GdkEventScroll *event, task *tk)
 {
@@ -781,6 +970,12 @@ tk_callback_scroll_event (GtkWidget *widget, GdkEventScroll *event, task *tk)
 }
 
 
+/*
+ * tk_callback_button_press_event -- intercept Ctrl+RMB before release.
+ *
+ * When Ctrl+RMB is pressed, propagates to the bar (for the panel's
+ * context menu) and sets discard_release_event to eat the coming release.
+ */
 static gboolean
 tk_callback_button_press_event(GtkWidget *widget, GdkEventButton *event,
     task *tk)
@@ -796,6 +991,15 @@ tk_callback_button_press_event(GtkWidget *widget, GdkEventButton *event,
 }
 
 
+/*
+ * tk_callback_button_release_event -- handle LMB/MMB/RMB release on task button.
+ *
+ * LMB: if iconified → map/raise; if focused or ptk → iconify; else → raise.
+ * MMB: toggle shaded state via _NET_WM_STATE.
+ * RMB: show context menu.
+ * Ctrl+RMB release: discard.
+ * Pointer must be inside the button (GTK_BUTTON::in_button check).
+ */
 static gboolean
 tk_callback_button_release_event(GtkWidget *widget, GdkEventButton *event,
     task *tk)
@@ -804,13 +1008,14 @@ tk_callback_button_release_event(GtkWidget *widget, GdkEventButton *event,
 
     if (event->type == GDK_BUTTON_RELEASE && tk->tb->discard_release_event) {
         tk->tb->discard_release_event = 0;
-        RET(TRUE);
+        RET(TRUE);   /* eat the Ctrl+RMB release */
     }
     if ((event->type != GDK_BUTTON_RELEASE) || (!GTK_BUTTON(widget)->in_button))
         RET(FALSE);
     DBG("win=%x\n", tk->win);
     if (event->button == 1) {
         if (tk->iconified)    {
+            /* un-iconify (map + raise) the window */
             if(use_net_active) {
                 Xclimsg(tk->win, a_NET_ACTIVE_WINDOW, 2, event->time, 0, 0, 0);
             } else {
@@ -827,24 +1032,23 @@ tk_callback_button_release_event(GtkWidget *widget, GdkEventButton *event,
         } else {
             DBG("tb->ptk = %x\n", (tk->tb->ptk) ? tk->tb->ptk->win : 0);
             if (tk->focused || tk == tk->tb->ptk) {
-                //tk->iconified = 1;
+                /* clicking the focused window iconifies it */
                 XIconifyWindow (GDK_DISPLAY(), tk->win,
                     DefaultScreen(GDK_DISPLAY()));
                 DBG("XIconifyWindow %x\n", tk->win);
             } else {
+                /* clicking an unfocused window raises it */
                 tk_raise_window( tk, event->time );
             }
         }
     } else if (event->button == 2) {
+        /* MMB: toggle shaded state */
         Xclimsg(tk->win, a_NET_WM_STATE,
             2 /*a_NET_WM_STATE_TOGGLE*/,
             a_NET_WM_STATE_SHADED,
             0, 0, 0);
     } else if (event->button == 3) {
-        /*
-        XLowerWindow (GDK_DISPLAY(), tk->win);
-        DBG("XLowerWindow %x\n", tk->win);
-        */
+        /* RMB: show the context menu */
         tk->tb->menutask = tk;
         gtk_menu_popup (GTK_MENU (tk->tb->menu), NULL, NULL,
             (GtkMenuPositionFunc)menu_pos, widget, event->button, event->time);
@@ -856,6 +1060,12 @@ tk_callback_button_release_event(GtkWidget *widget, GdkEventButton *event,
 }
 
 
+/*
+ * tk_update -- show or hide a task's button based on current visibility rules.
+ *
+ * Called from tb_display (via g_hash_table_foreach) and directly after
+ * focus changes.  Sets button state to focused/normal and shows/hides it.
+ */
 static void
 tk_update(gpointer key, task *tk, taskbar_priv *tb)
 {
@@ -865,7 +1075,6 @@ tk_update(gpointer key, task *tk, taskbar_priv *tb)
         gtk_widget_set_state (tk->button,
               (tk->focused) ? tb->focused_state : tb->normal_state);
         gtk_widget_queue_draw(tk->button);
-        //_gtk_button_set_depressed(GTK_BUTTON(tk->button), tk->focused);
         gtk_widget_show(tk->button);
 
         if (tb->tooltips) {
@@ -877,6 +1086,9 @@ tk_update(gpointer key, task *tk, taskbar_priv *tb)
     RET();
 }
 
+/*
+ * tk_display -- refresh a single task's button visibility.
+ */
 static void
 tk_display(taskbar_priv *tb, task *tk)
 {
@@ -885,6 +1097,9 @@ tk_display(taskbar_priv *tb, task *tk)
     RET();
 }
 
+/*
+ * tb_display -- refresh all task buttons.
+ */
 static void
 tb_display(taskbar_priv *tb)
 {
@@ -895,6 +1110,17 @@ tb_display(taskbar_priv *tb)
 
 }
 
+/*
+ * tk_build_gui -- create all GTK widgets for one task.
+ *
+ * Builds: GtkButton → GtkHBox → GtkImage [+ GtkLabel]
+ * Connects button event handlers, sets up DnD drag destination,
+ * and starts urgency flashing if tk->urgency is set.
+ *
+ * Parameters:
+ *   tb - taskbar_priv.
+ *   tk - task for which to build the button.
+ */
 static void
 tk_build_gui(taskbar_priv *tb, task *tk)
 {
@@ -903,17 +1129,12 @@ tk_build_gui(taskbar_priv *tb, task *tk)
     ENTER;
     g_assert ((tb != NULL) && (tk != NULL));
 
-    /* NOTE
-     * 1. the extended mask is sum of taskbar and pager needs
-     * see bug [ 940441 ] pager loose track of windows
-     *
-     * Do not change event mask to gtk windows spwaned by this gtk client
-     * this breaks gtk internals */
+    /* subscribe to X11 events for non-panel windows */
     if (!FBPANEL_WIN(tk->win))
         XSelectInput(GDK_DISPLAY(), tk->win,
                 PropertyChangeMask | StructureNotifyMask);
 
-    /* button */
+    /* create the button */
     tk->button = gtk_button_new();
     gtk_button_set_alignment(GTK_BUTTON(tk->button), 0.5, 0.5);
     gtk_widget_show(tk->button);
@@ -928,6 +1149,7 @@ tk_build_gui(taskbar_priv *tb, task *tk)
           G_CALLBACK (tk_callback_leave), (gpointer) tk);
     g_signal_connect_after (G_OBJECT (tk->button), "enter",
           G_CALLBACK (tk_callback_enter), (gpointer) tk);
+    /* configure drag destination for drag-over window activation */
     gtk_drag_dest_set( tk->button, 0, NULL, 0, 0);
     g_signal_connect (G_OBJECT (tk->button), "drag-motion",
           G_CALLBACK (tk_callback_drag_motion), (gpointer) tk);
@@ -937,13 +1159,14 @@ tk_build_gui(taskbar_priv *tb, task *tk)
         g_signal_connect_after(G_OBJECT(tk->button), "scroll-event",
               G_CALLBACK(tk_callback_scroll_event), (gpointer)tk);
 
-    /* pix */
+    /* icon image */
     tk_update_icon(tb, tk, None);
     w1 = tk->image = gtk_image_new_from_pixbuf(tk->pixbuf);
     gtk_misc_set_alignment(GTK_MISC(tk->image), 0.5, 0.5);
     gtk_misc_set_padding(GTK_MISC(tk->image), 0, 0);
 
     if (!tb->icons_only) {
+        /* icon + label layout */
         w1 = gtk_hbox_new(FALSE, 1);
         gtk_container_set_border_width(GTK_CONTAINER(w1), 0);
         gtk_box_pack_start(GTK_BOX(w1), tk->image, FALSE, FALSE, 0);
@@ -958,19 +1181,24 @@ tk_build_gui(taskbar_priv *tb, task *tk)
     gtk_box_pack_start(GTK_BOX(tb->bar), tk->button, FALSE, TRUE, 0);
     GTK_WIDGET_UNSET_FLAGS (tk->button, GTK_CAN_FOCUS);
     GTK_WIDGET_UNSET_FLAGS (tk->button, GTK_CAN_DEFAULT);
-    
+
     gtk_widget_show_all(tk->button);
     if (!task_visible(tb, tk)) {
         gtk_widget_hide(tk->button);
     }
 
     if (tk->urgency) {
-        /* Flash button for window with urgency hint */
+        /* start flashing for windows with urgency hint set */
         tk_flash_window(tk);
     }
     RET();
 }
 
+/*
+ * task_remove_every -- GHashTable foreach-remove callback: remove all tasks.
+ *
+ * Used in the destructor to clean up all tasks.
+ */
 static gboolean
 task_remove_every(Window *win, task *tk)
 {
@@ -979,13 +1207,17 @@ task_remove_every(Window *win, task *tk)
     RET(TRUE);
 }
 
-/* tell to remove element with zero refcount */
+/*
+ * task_remove_stale -- GHashTable foreach-remove callback.
+ *
+ * Removes tasks whose refcount has reached 0 (no longer in _NET_CLIENT_LIST).
+ * Returns: TRUE to remove, FALSE to keep.
+ */
 static gboolean
 task_remove_stale(Window *win, task *tk, gpointer data)
 {
     ENTER;
     if (tk->refcount-- == 0) {
-        //DBG("tb_net_list <del>: 0x%x %s\n", tk->win, tk->name);
         del_task(tk->tb, tk, 0);
         RET(TRUE);
     }
@@ -997,6 +1229,13 @@ task_remove_stale(Window *win, task *tk, gpointer data)
  *****************************************************/
 
 
+/*
+ * tb_net_client_list -- "client_list" FbEv handler.
+ *
+ * Fetches _NET_CLIENT_LIST, creates task structs for new windows
+ * (after filtering by nws/nwwt), and removes stale ones.
+ * Calls tb_display() to refresh all button visibility.
+ */
 static void
 tb_net_client_list(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1012,7 +1251,7 @@ tb_net_client_list(GtkWidget *widget, taskbar_priv *tb)
         RET();
     for (i = 0; i < tb->win_num; i++) {
         if ((tk = g_hash_table_lookup(tb->task_list, &tb->wins[i]))) {
-            tk->refcount++;
+            tk->refcount++;   /* bump so task_remove_stale won't remove it */
         } else {
             net_wm_window_type nwwt;
             net_wm_state nws;
@@ -1047,7 +1286,7 @@ tb_net_client_list(GtkWidget *widget, taskbar_priv *tb)
         }
     }
 
-    /* remove windows that arn't in the NET_CLIENT_LIST anymore */
+    /* remove windows no longer in _NET_CLIENT_LIST */
     g_hash_table_foreach_remove(tb->task_list, (GHRFunc) task_remove_stale,
         NULL);
     tb_display(tb);
@@ -1056,6 +1295,11 @@ tb_net_client_list(GtkWidget *widget, taskbar_priv *tb)
 
 
 
+/*
+ * tb_net_current_desktop -- "current_desktop" FbEv handler.
+ *
+ * Updates cur_desk and refreshes all task button visibility.
+ */
 static void
 tb_net_current_desktop(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1066,6 +1310,11 @@ tb_net_current_desktop(GtkWidget *widget, taskbar_priv *tb)
 }
 
 
+/*
+ * tb_net_number_of_desktops -- "number_of_desktops" FbEv handler.
+ *
+ * Updates desk_num and refreshes all task button visibility.
+ */
 static void
 tb_net_number_of_desktops(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1076,8 +1325,15 @@ tb_net_number_of_desktops(GtkWidget *widget, taskbar_priv *tb)
 }
 
 
-/* set new active window. if that happens to be us, then remeber
- * current focus to use it for iconify command */
+/*
+ * tb_net_active_window -- "active_window" FbEv handler.
+ *
+ * Fetches _NET_ACTIVE_WINDOW and updates the focused task.
+ * Maintains tb->ptk (previously-focused task) for the iconify-on-click logic.
+ *
+ * Special case: if the newly active window is topxwin (the panel itself),
+ * the current task's focus is dropped but ptk is set to remember it.
+ */
 static void
 tb_net_active_window(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1093,10 +1349,12 @@ tb_net_active_window(GtkWidget *widget, taskbar_priv *tb)
     f = get_xaproperty(GDK_ROOT_WINDOW(), a_NET_ACTIVE_WINDOW, XA_WINDOW, 0);
     DBG("FOCUS=%x\n", f ? *f : 0);
     if (!f) {
+        /* no active window — drop focus entirely */
         drop_old = 1;
         tb->ptk = NULL;
     } else {
         if (*f == tb->topxwin) {
+            /* panel itself gained focus — remember which task was focused */
             if (ctk) {
                 tb->ptk = ctk;
                 drop_old = 1;
@@ -1126,11 +1384,18 @@ tb_net_active_window(GtkWidget *widget, taskbar_priv *tb)
     RET();
 }
 
-/* For older Xlib headers */
+/* Backwards-compat define for older Xlib headers */
 #ifndef XUrgencyHint
 #define XUrgencyHint (1 << 8)
 #endif
 
+/*
+ * tk_has_urgency -- check whether a window has XUrgencyHint set.
+ *
+ * Fetches WM_HINTS and checks for XUrgencyHint.  Updates tk->urgency.
+ *
+ * Returns: non-zero if urgency is set, 0 otherwise.
+ */
 static gboolean
 tk_has_urgency( task* tk )
 {
@@ -1139,13 +1404,26 @@ tk_has_urgency( task* tk )
     tk->urgency = 0;
     hints = XGetWMHints(GDK_DISPLAY(), tk->win);
     if (hints) {
-        if (hints->flags & XUrgencyHint) /* Got urgency hint */
+        if (hints->flags & XUrgencyHint)   /* urgency hint present */
             tk->urgency = 1;
         XFree( hints );
     }
     return tk->urgency;
 }
 
+/*
+ * tb_propertynotify -- handle PropertyNotify for a client window.
+ *
+ * Dispatches on the changed atom:
+ *   _NET_WM_DESKTOP  → update desktop, refresh display.
+ *   XA_WM_NAME       → refresh name/iname strings and label.
+ *   XA_WM_HINTS      → refresh icon, check/update urgency flash.
+ *   _NET_WM_STATE    → re-check accept, update iconified, refresh name.
+ *   _NET_WM_ICON     → refresh icon pixbuf.
+ *   _NET_WM_WINDOW_TYPE → re-check accept; remove if now excluded.
+ *
+ * Root-window property events are ignored (handled via FbEv signals).
+ */
 static void
 tb_propertynotify(taskbar_priv *tb, XEvent *ev)
 {
@@ -1176,10 +1454,8 @@ tb_propertynotify(taskbar_priv *tb, XEvent *ev)
             gtk_image_set_from_pixbuf (GTK_IMAGE(tk->image), tk->pixbuf);
             if (tb->use_urgency_hint) {
                 if (tk_has_urgency(tk)) {
-                    //tk->urgency = 1;
                     tk_flash_window(tk);
                 } else {
-                    //tk->urgency = 0;
                     tk_unflash_window(tk);
                 }
             }
@@ -1197,11 +1473,8 @@ tb_propertynotify(taskbar_priv *tb, XEvent *ev)
             }
         } else if (at == a_NET_WM_ICON) {
             DBG("_NET_WM_ICON\n");
-            DBG("#0 %d\n", GDK_IS_PIXBUF (tk->pixbuf));
             tk_update_icon (tb, tk, a_NET_WM_ICON);
-            DBG("#1 %d\n", GDK_IS_PIXBUF (tk->pixbuf));
             gtk_image_set_from_pixbuf (GTK_IMAGE(tk->image), tk->pixbuf);
-            DBG("#2 %d\n", GDK_IS_PIXBUF (tk->pixbuf));
         } else if (at == a_NET_WM_WINDOW_TYPE) {
             net_wm_window_type nwwt;
 
@@ -1218,31 +1491,45 @@ tb_propertynotify(taskbar_priv *tb, XEvent *ev)
     RET();
 }
 
+/*
+ * tb_event_filter -- GDK event filter for X11 PropertyNotify on client windows.
+ *
+ * Dispatches to tb_propertynotify for all PropertyNotify events.
+ * Root-window events are ignored here (FbEv handles those separately).
+ *
+ * Returns: GDK_FILTER_CONTINUE (never consumes events).
+ */
 static GdkFilterReturn
 tb_event_filter( XEvent *xev, GdkEvent *event, taskbar_priv *tb)
 {
 
     ENTER;
-    //RET(GDK_FILTER_CONTINUE);
     g_assert(tb != NULL);
     if (xev->type == PropertyNotify )
         tb_propertynotify(tb, xev);
     RET(GDK_FILTER_CONTINUE);
 }
 
+/*
+ * menu_close_window -- "activate" handler for the "Close" menu item.
+ *
+ * Sends WM_DELETE_WINDOW message via Xclimsgwm (polite close request).
+ */
 static void
 menu_close_window(GtkWidget *widget, taskbar_priv *tb)
 {
     ENTER;
     DBG("win %x\n", tb->menutask->win);
     XSync (GDK_DISPLAY(), 0);
-    //XKillClient(GDK_DISPLAY(), tb->menutask->win);
     Xclimsgwm(tb->menutask->win, a_WM_PROTOCOLS, a_WM_DELETE_WINDOW);
     XSync (GDK_DISPLAY(), 0);
     RET();
 }
 
 
+/*
+ * menu_raise_window -- "activate" handler for the "Raise" menu item.
+ */
 static void
 menu_raise_window(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1253,6 +1540,9 @@ menu_raise_window(GtkWidget *widget, taskbar_priv *tb)
 }
 
 
+/*
+ * menu_iconify_window -- "activate" handler for the "Iconify" menu item.
+ */
 static void
 menu_iconify_window(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1263,6 +1553,12 @@ menu_iconify_window(GtkWidget *widget, taskbar_priv *tb)
     RET();
 }
 
+/*
+ * send_to_workspace -- "button_press_event" handler for workspace submenu items.
+ *
+ * Reads the "num" data from the menu item and sends _NET_WM_DESKTOP to
+ * move menutask's window to that desktop.
+ */
 static void
 send_to_workspace(GtkWidget *widget, void *iii, taskbar_priv *tb)
 {
@@ -1277,8 +1573,14 @@ send_to_workspace(GtkWidget *widget, void *iii, taskbar_priv *tb)
     RET();
 }
 
-#define ALL_WORKSPACES  0xFFFFFFFF
+#define ALL_WORKSPACES  0xFFFFFFFF   /* _NET_WM_DESKTOP value for sticky windows */
 
+/*
+ * tb_update_desktops_names -- refresh tb->desk_names and desk_namesno.
+ *
+ * Reads _NET_DESKTOP_NAMES (UTF-8 list) from the root window.
+ * g_strfreev's the previous list before replacing.
+ */
 static void
 tb_update_desktops_names(taskbar_priv *tb)
 {
@@ -1291,6 +1593,18 @@ tb_update_desktops_names(taskbar_priv *tb)
     RET();
 }
 
+/*
+ * tb_make_menu -- build (or rebuild) the right-click context menu.
+ *
+ * Called from taskbar_build_gui and whenever "desktop_names" or
+ * "number_of_desktops" FbEv signals fire.
+ * Destroys the previous menu and creates a new one with:
+ *   Raise / Iconify / Move to workspace (submenu) / Close.
+ *
+ * Parameters:
+ *   widget - unused (required by FbEv signal signature).
+ *   tb     - taskbar_priv.
+ */
 static void
 tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
 {
@@ -1317,6 +1631,7 @@ tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
         (GCallback)menu_iconify_window, tb);
     gtk_widget_show (mi);
 
+    /* "Move to workspace" submenu */
     tb_update_desktops_names(tb);
     submenu = gtk_menu_new();
     for (i = 0; i < tb->desk_num; i++) {
@@ -1325,10 +1640,12 @@ tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
         mi = gtk_image_menu_item_new_with_label (buf);
         g_object_set_data(G_OBJECT(mi), "num", GINT_TO_POINTER(i));
         gtk_menu_shell_append (GTK_MENU_SHELL (submenu), mi);
+        /* NOTE: uses button_press_event not activate — send_to_workspace gets 3 args */
         g_signal_connect(G_OBJECT(mi), "button_press_event",
             (GCallback)send_to_workspace, tb);
         g_free(buf);
     }
+    /* "All workspaces" sticky option */
     mi = gtk_image_menu_item_new_with_label(_("All workspaces"));
     g_object_set_data(G_OBJECT(mi), "num", GINT_TO_POINTER(ALL_WORKSPACES));
     g_signal_connect(mi, "activate",
@@ -1347,8 +1664,7 @@ tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
     gtk_menu_shell_append (GTK_MENU_SHELL (menu), mi);
     gtk_widget_show (mi);
 
-    /* we want this item to be farest from mouse pointer */
-    //mi = gtk_menu_item_new_with_label ("Close Window");
+    /* Close — placed last so it's furthest from the mouse pointer */
     mi = gtk_image_menu_item_new_from_stock(GTK_STOCK_CLOSE, NULL);
     gtk_menu_shell_append (GTK_MENU_SHELL (menu), mi);
     g_signal_connect(G_OBJECT(mi), "activate",
@@ -1356,10 +1672,16 @@ tb_make_menu(GtkWidget *widget, taskbar_priv *tb)
     gtk_widget_show (mi);
 
     if (tb->menu)
-        gtk_widget_destroy(tb->menu);
+        gtk_widget_destroy(tb->menu);   /* destroy the previous menu */
     tb->menu = menu;
 }
 
+/*
+ * taskbar_size_alloc -- "size-allocate" handler on the GtkAlignment.
+ *
+ * Recomputes the GtkBar dimension (rows or columns) when the taskbar
+ * changes size.
+ */
 static void
 taskbar_size_alloc(GtkWidget *widget, GtkAllocation *a,
     taskbar_priv *tb)
@@ -1377,6 +1699,18 @@ taskbar_size_alloc(GtkWidget *widget, GtkAllocation *a,
     RET();
 }
 
+/*
+ * taskbar_build_gui -- build the taskbar widget hierarchy.
+ *
+ * Creates: p->pwid → GtkAlignment → GtkBar (tb->bar)
+ * Loads the default icon, installs the GDK event filter, connects FbEv
+ * signals, and performs an initial build of the context menu.
+ *
+ * BUG: "number_of_desktops" is connected to BOTH tb_net_number_of_desktops
+ *   AND tb_make_menu, but the destructor only disconnects
+ *   tb_net_number_of_desktops.  The tb_make_menu connection (and the
+ *   "desktop_names" → tb_make_menu connection) are leaked.
+ */
 static void
 taskbar_build_gui(plugin_instance *p)
 {
@@ -1384,6 +1718,7 @@ taskbar_build_gui(plugin_instance *p)
     GtkWidget *ali;
 
     ENTER;
+    /* alignment positions the bar flush left (horizontal) or top (vertical) */
     if (p->panel->orientation == GTK_ORIENTATION_HORIZONTAL)
         ali = gtk_alignment_new(0.0, 0.5, 0, 0);
     else
@@ -1399,8 +1734,10 @@ taskbar_build_gui(plugin_instance *p)
     gtk_container_add(GTK_CONTAINER(ali), tb->bar);
     gtk_widget_show_all(ali);
 
+    /* default icon used when a window has no icon of its own */
     tb->gen_pixbuf = gdk_pixbuf_new_from_xpm_data((const char **)icon_xpm);
 
+    /* raw X11 event filter for PropertyNotify on client windows */
     gdk_window_add_filter(NULL, (GdkFilterFunc)tb_event_filter, tb );
 
     g_signal_connect (G_OBJECT (fbev), "current_desktop",
@@ -1413,20 +1750,29 @@ taskbar_build_gui(plugin_instance *p)
           G_CALLBACK (tb_net_client_list), (gpointer) tb);
     g_signal_connect (G_OBJECT (fbev), "desktop_names",
           G_CALLBACK (tb_make_menu), (gpointer) tb);
+    /* BUG: second connection to "number_of_desktops" is not disconnected in destructor */
     g_signal_connect (G_OBJECT (fbev), "number_of_desktops",
           G_CALLBACK (tb_make_menu), (gpointer) tb);
-    
+
     tb->desk_num = get_net_number_of_desktops();
     tb->cur_desk = get_net_current_desktop();
     tb->focused = NULL;
     tb->menu = NULL;
-    
-    tb_make_menu(NULL, tb);
+
+    tb_make_menu(NULL, tb);   /* initial context menu build */
     gtk_container_set_border_width(GTK_CONTAINER(p->pwid), 0);
     gtk_widget_show_all(tb->bar);
     RET();
 }
 
+/*
+ * net_active_detect -- check if the WM supports _NET_ACTIVE_WINDOW.
+ *
+ * Reads _NET_SUPPORTED from the root window and scans for the atom.
+ * Sets the file-scope use_net_active flag.
+ *
+ * BUG: file-scope static — affects all taskbar instances globally.
+ */
 void net_active_detect()
 {
     int nitens;
@@ -1445,6 +1791,17 @@ void net_active_detect()
     XFree(data);
 }
 
+/*
+ * taskbar_constructor -- initialise the taskbar plugin.
+ *
+ * Reads config, builds the widget hierarchy, fetches the initial
+ * window list, and updates the focused window indicator.
+ *
+ * Parameters:
+ *   p - plugin_instance allocated by the panel framework.
+ *
+ * Returns: 1 (always succeeds).
+ */
 int
 taskbar_constructor(plugin_instance *p)
 {
@@ -1458,6 +1815,7 @@ taskbar_constructor(plugin_instance *p)
     get_button_spacing(&req, GTK_CONTAINER(p->pwid), "");
     net_active_detect();
 
+    /* initialise defaults */
     tb->topxwin           = p->panel->topxwin;
     tb->tooltips          = 1;
     tb->icons_only        = 0;
@@ -1474,18 +1832,18 @@ taskbar_constructor(plugin_instance *p)
     tb->use_mouse_wheel   = 1;
     tb->use_urgency_hint  = 1;
 
-    XCG(xc, "tooltips", &tb->tooltips, enum, bool_enum);
-    XCG(xc, "iconsonly", &tb->icons_only, enum, bool_enum);
-    XCG(xc, "acceptskippager", &tb->accept_skip_pager, enum, bool_enum);
-    XCG(xc, "showiconified", &tb->show_iconified, enum, bool_enum);
-    XCG(xc, "showalldesks", &tb->show_all_desks, enum, bool_enum);
-    XCG(xc, "showmapped", &tb->show_mapped, enum, bool_enum);
-    XCG(xc, "usemousewheel", &tb->use_mouse_wheel, enum, bool_enum);
-    XCG(xc, "useurgencyhint", &tb->use_urgency_hint, enum, bool_enum);
-    XCG(xc, "maxtaskwidth", &tb->task_width_max, int);
+    /* read config overrides */
+    XCG(xc, "tooltips",        &tb->tooltips,          enum, bool_enum);
+    XCG(xc, "iconsonly",       &tb->icons_only,         enum, bool_enum);
+    XCG(xc, "acceptskippager", &tb->accept_skip_pager,  enum, bool_enum);
+    XCG(xc, "showiconified",   &tb->show_iconified,     enum, bool_enum);
+    XCG(xc, "showalldesks",    &tb->show_all_desks,     enum, bool_enum);
+    XCG(xc, "showmapped",      &tb->show_mapped,        enum, bool_enum);
+    XCG(xc, "usemousewheel",   &tb->use_mouse_wheel,    enum, bool_enum);
+    XCG(xc, "useurgencyhint",  &tb->use_urgency_hint,   enum, bool_enum);
+    XCG(xc, "maxtaskwidth",    &tb->task_width_max,     int);
 
-    /* FIXME: until per-plugin elem height limit is ready, lets
-     * use hardcoded TASK_HEIGHT_MAX pixels */
+    /* FIXME: cap at TASK_HEIGHT_MAX until per-plugin height limit is ready */
     if (tb->task_height_max > TASK_HEIGHT_MAX)
         tb->task_height_max = TASK_HEIGHT_MAX;
     if (p->panel->orientation == GTK_ORIENTATION_HORIZONTAL) {
@@ -1493,6 +1851,7 @@ taskbar_constructor(plugin_instance *p)
         if (tb->icons_only)
             tb->task_width_max = tb->iconsize + req.width;
     } else {
+        /* narrow vertical panels go icons-only automatically */
         if (p->panel->aw <= 30)
             tb->icons_only = 1;
         tb->iconsize = MIN(p->panel->aw, tb->task_height_max) - req.height;
@@ -1500,13 +1859,21 @@ taskbar_constructor(plugin_instance *p)
             tb->task_width_max = tb->iconsize + req.height;
     }
     taskbar_build_gui(p);
-    tb_net_client_list(NULL, tb);
+    tb_net_client_list(NULL, tb);   /* populate initial window list */
     tb_display(tb);
-    tb_net_active_window(NULL, tb);
+    tb_net_active_window(NULL, tb); /* set initial focus state */
     RET(1);
 }
 
 
+/*
+ * taskbar_destructor -- clean up all taskbar plugin resources.
+ *
+ * Removes the GDK event filter, disconnects 4 FbEv signals
+ * (BUG: "desktop_names" → tb_make_menu and "number_of_desktops" →
+ * tb_make_menu are NOT disconnected), removes all tasks, destroys
+ * the hash table, XFree's the window list, and destroys the menu.
+ */
 static void
 taskbar_destructor(plugin_instance *p)
 {
@@ -1522,13 +1889,15 @@ taskbar_destructor(plugin_instance *p)
             tb_net_number_of_desktops, tb);
     g_signal_handlers_disconnect_by_func(G_OBJECT (fbev),
             tb_net_client_list, tb);
+    /* BUG: "desktop_names" → tb_make_menu NOT disconnected */
+    /* BUG: "number_of_desktops" → tb_make_menu NOT disconnected */
 
     g_hash_table_foreach_remove(tb->task_list, (GHRFunc) task_remove_every,
             NULL);
     g_hash_table_destroy(tb->task_list);
     if (tb->wins)
         XFree(tb->wins);
-    //gtk_widget_destroy(tb->bar); // destroy of p->pwid does it all
+    /* tb->bar is a child of p->pwid — destroyed by framework; no explicit destroy needed */
     gtk_widget_destroy(tb->menu);
     DBG("alloc_no=%d\n", tb->alloc_no);
     RET();
@@ -1547,4 +1916,5 @@ static plugin_class class = {
     .destructor  = taskbar_destructor,
 };
 
+/* Required for PLUGIN macro auto-registration */
 static plugin_class *class_ptr = (plugin_class *) &class;
