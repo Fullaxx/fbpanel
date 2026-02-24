@@ -460,14 +460,6 @@ Plugin {
 ## Uncomment any block below to activate.
 ## ──────────────────────────────────────────────
 
-## ALSA Volume — libasound volume control (replaces OSS volume plugin)
-#Plugin {
-#    type = alsa
-#    config {
-#        Card    = default
-#        Control = Master
-#    }
-#}
 
 ## Display Resolution — shows current screen resolution (e.g. 1920x1080)
 #Plugin {

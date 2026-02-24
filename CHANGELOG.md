@@ -1,3 +1,6 @@
+## Version: 8.4.3 — 2026-02-24
+* Remove duplicate commented alsa plugin block from default config
+
 ## Version: 8.4.2 — 2026-02-24
 * Fix default config actions for cross-distro portability (Fedora / Arch / etc.):
   - launchbar terminal: `x-terminal-emulator` → `xterm` (Debian-specific alternative)
