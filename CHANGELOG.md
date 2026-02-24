@@ -1,3 +1,8 @@
+## Version: 8.4.1 — 2026-02-24
+* Fix default launchbar actions in default config:
+  - `x-file-manager` → `xdg-open .` (x-file-manager is not a standard alternative)
+  - `x-terminal` → `x-terminal-emulator` (correct Debian/Ubuntu alternatives name)
+
 ## Version: 8.4.0 — 2026-02-24
 * Remove deprecated OSS volume plugin (relied on /dev/mixer which is absent
   on most modern kernels)

@@ -198,14 +198,14 @@ Plugin {
         button {
             icon = file-manager
             tooltip = File Manager
-            action = x-file-manager
+            action = xdg-open .
         }
         button {
             icon = terminal
             tooltip = Terminal
-            action = x-terminal
+            action = x-terminal-emulator
         }
-	button {
+        button {
             icon = web-browser
             tooltip = Web Browser
             action = x-www-browser
