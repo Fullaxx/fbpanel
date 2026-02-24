@@ -1,4 +1,30 @@
-## Version: 8.3.2 — 2026-02-23
+## Version: 8.4.0 — 2026-02-24
+* Remove deprecated OSS volume plugin (relied on /dev/mixer which is absent
+  on most modern kernels)
+* Add 8 new Tier-2 plugins:
+  - alsa: ALSA master volume control via libasound; replaces the volume plugin.
+    Slider popup, mute toggle (middle-click), scroll-wheel ±2%, 500ms poll.
+    New optional build dependency: libasound2 / alsa-lib.
+  - xrandr: read-only display resolution label (e.g. "1920x1080") using GDK.
+    Responds to GdkScreen "size-changed" — no polling. Optional click command.
+  - xkill: click button to enter kill mode; click any window to XKillClient().
+    Uses GDK pointer grab + root-window event filter. Escape or right-click cancels.
+  - timer: configurable countdown timer with idle / running / alarmed states.
+    Left-click starts; another click resets. Alarmed label flashes until reset.
+  - clipboard: clipboard history via GTK2 GtkClipboard owner-change signal.
+    Stores up to MaxHistory text entries; popup menu to restore any entry.
+  - windowlist: popup menu of all open windows from _NET_CLIENT_LIST.
+    Click to raise/focus via EWMH _NET_ACTIVE_WINDOW.
+  - capslock: Caps Lock / Num Lock / Scroll Lock indicator via XkbGetIndicatorState.
+    Polls every 200ms. Bold for active; dim for inactive. HideInactive option.
+  - kbdlayout: active XKB keyboard layout label. Left-click cycles groups;
+    right-click shows layout menu. Uses XkbGetState / XkbGetNames / XkbLockGroup.
+* Update CMakeLists.txt: volume removed from PLUGINS; alsa added as a separate
+  optional target with pkg-config ALSA detection
+* Update default config, README, ARCHITECTURE.md, XCONF_REFERENCE.md,
+  TODO_NEW_PLUGIN_IDEAS.md
+
+## Version: 8.3.3 — 2026-02-23
 * Fix all "Move to workspace" submenu items (BUG-017 extended)
 * Numbered workspace items were silently broken: button_press_event never fires
   on windowless GtkMenuItems; send_to_workspace was never called

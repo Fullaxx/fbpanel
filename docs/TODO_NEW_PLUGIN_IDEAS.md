@@ -69,15 +69,25 @@ Adjust screen backlight brightness via scroll wheel, show level as an icon.
 
 ---
 
-## Tier 2 — Medium complexity, uses existing GTK2 features or one small dep
+## Tier 2 — Medium complexity, uses existing GTK2 features or one small dep ✓ PARTIALLY COMPLETED in v8.4.0
+
+The following Tier-2 plugins were implemented and shipped in v8.4.0:
+`alsa`, `xrandr`, `xkill`, `timer`, `clipboard`, `windowlist`, `capslock`,
+`kbdlayout`.  They are documented in XCONF_REFERENCE.md.
+
+The deprecated OSS `volume` plugin was removed in the same release; `alsa`
+is its replacement.
+
+Remaining (not yet implemented): `hwmon`, `xrandr`-interactive, `weather`,
+`gpu`, `uptime`, `netstat`, `screenshot`, `scratchpad`.
 
 These require non-trivial GTK2 work, a new popup window, or a small external
 library that is almost universally available.
 
-Priority recommendations (highest first): `alsa` > `hwmon` > `windowlist` >
-`capslock` > `kbdlayout`.  All others are lower priority or more niche.
+Priority recommendations for remaining work (highest first): `hwmon` > `weather`
+> `gpu`.  Others are low priority or niche.
 
-### `alsa` ★ RECOMMENDED #1
+### `alsa` ✓ implemented in v8.4.0
 Improved ALSA volume control to replace or complement the existing `volume` plugin.
 - The current `volume` plugin uses the raw OSS `/dev/mixer` interface, which is
   deprecated on modern kernels and absent on many systems.
@@ -100,7 +110,7 @@ Hardware sensor monitor: fan speeds, voltages, additional temperatures.
 - No new deps — pure sysfs reads.
 - Complements `thermal` rather than replacing it.
 
-### `windowlist` ★ RECOMMENDED #3
+### `windowlist` ✓ implemented in v8.4.0
 Popup menu of all open windows; click to raise/focus.
 - Alternative to the taskbar for minimal panels where a full taskbar wastes space.
 - Data source: `_NET_CLIENT_LIST` + `_NET_WM_NAME` + `_NET_WM_ICON` — all
@@ -110,7 +120,7 @@ Popup menu of all open windows; click to raise/focus.
 - Subscribe to `fbev "client_list"` to rebuild the menu on window open/close.
 - No new deps; moderate X11/GTK2 complexity.
 
-### `capslock` ★ RECOMMENDED #4
+### `capslock` ✓ implemented in v8.4.0
 Indicator for Caps Lock, Num Lock, and/or Scroll Lock state.
 - Data source: `XQueryPointer` or `XkbGetIndicatorState` — X11 already linked.
   `XkbGetIndicatorState(dpy, XkbUseCoreKbd, &state)` returns a bitmask;
@@ -128,7 +138,7 @@ Popup calendar on clicking the clock.
 - Could be implemented as a wrapper around `tclock` or `dclock` rather than a
   fully independent plugin.
 
-### `kbdlayout` ★ RECOMMENDED #5
+### `kbdlayout` ✓ implemented in v8.4.0
 Show and cycle keyboard layouts (e.g. "us → de → fr").
 - Data source: XKB extension (`XkbGetState`, `XkbGetNames`) — X11 already
   linked.
@@ -137,7 +147,7 @@ Show and cycle keyboard layouts (e.g. "us → de → fr").
 - Medium X11 complexity: XKB API is verbose but well-documented.
 - Note: `capslock` (above) shares the XKB code path; implement together.
 
-### `xrandr`
+### `xrandr` ✓ implemented in v8.4.0 (read-only resolution label)
 Display output switcher / resolution indicator.
 - Data source: XRandR extension (`libXrandr`) — small dep, widely available.
 - Read-only: show current resolution and refresh rate as text (e.g. "1920×1080@60").
@@ -147,7 +157,7 @@ Display output switcher / resolution indicator.
   if shelling out to `xrandr`.
 - Most useful on laptops (lid close, external monitor connect).
 
-### `xkill`
+### `xkill` ✓ implemented in v8.4.0
 Click a panel button, then click any window to kill it.
 - Pure X11: call `XKillClient(dpy, win)` on the selected window's XID.
   Alternatively shell to `xkill` via `run_app("xkill")`.
@@ -156,14 +166,14 @@ Click a panel button, then click any window to kill it.
   target window.
 - No new deps (X11 already linked).  Low real-world usage but simple to implement.
 
-### `timer`
+### `timer` ✓ implemented in v8.4.0
 A configurable countdown timer with a visual indicator.
 - Pure GLib + GTK2: `g_timeout_add`, a `GtkProgressBar` or label, a small
   config popup on right-click.
 - States: idle → running → alarmed (flashing/colour change).
 - No new deps; self-contained GLib timer logic.
 
-### `clipboard`
+### `clipboard` ✓ implemented in v8.4.0
 Show the last N clipboard entries in a popup menu; click to re-paste.
 - Data source: X11 clipboard (`GDK_SELECTION_CLIPBOARD`,
   `gdk_selection_convert`) — X11 already linked.

@@ -82,8 +82,8 @@ target_include_directories(fbpanel SYSTEM PRIVATE ${X11_INCLUDE_DIRS} ${MODULES_
 # export symbols during link process of fbpanel because plugins use fbpanel binary as library.
 target_link_libraries     (fbpanel        PRIVATE -lm ${X11_LIBRARIES} ${MODULES_LIBRARIES} -Wl,--export-dynamic)
 
-# make a list of fbpanel plugins
-set(PLUGINS battery batterytext cpu deskno genmon image mem2 meter pager space tclock volume chart dclock deskno2 icons launchbar mem menu net separator taskbar tray user wincmd brightness cpufreq diskio diskspace loadavg swap thermal windowtitle)
+# make a list of fbpanel plugins (volume removed; replaced by alsa plugin below)
+set(PLUGINS battery batterytext cpu deskno genmon image mem2 meter pager space tclock chart dclock deskno2 icons launchbar mem menu net separator taskbar tray user wincmd brightness cpufreq diskio diskspace loadavg swap thermal windowtitle xrandr xkill timer clipboard windowlist capslock kbdlayout)
 
 foreach(PLUGIN ${PLUGINS})
     file(GLOB PLUGIN_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} plugins/${PLUGIN}/*.c)
@@ -97,6 +97,24 @@ foreach(PLUGIN ${PLUGINS})
     target_compile_definitions(${PLUGIN}        PUBLIC PLUGIN)
     target_compile_options    (${PLUGIN}        PUBLIC -pthread -MMD)
 endforeach()
+
+# ---------------------------------------------------------------------------
+# alsa plugin -- requires libasound2 (optional; skipped if not installed)
+# ---------------------------------------------------------------------------
+pkg_check_modules(ALSA alsa)
+if(ALSA_FOUND)
+    file(GLOB ALSA_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} plugins/alsa/*.c)
+    add_library               (alsa        SHARED  ${ALSA_SOURCES} ${FBPANEL_HEADERS})
+    target_include_directories(alsa        PUBLIC  panel .)
+    target_include_directories(alsa SYSTEM PRIVATE ${MODULES_INCLUDE_DIRS} ${ALSA_INCLUDE_DIRS})
+    target_link_libraries     (alsa        PRIVATE ${X11_LIBRARIES} ${MODULES_LIBRARIES} ${ALSA_LIBRARIES} -Wl,--warn-unresolved-symbols)
+    target_compile_definitions(alsa        PUBLIC  PLUGIN)
+    target_compile_options    (alsa        PUBLIC  -pthread -MMD)
+    install(PROGRAMS "${PROJECT_BINARY_DIR}/libalsa.so" DESTINATION "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}")
+    message(STATUS "alsa plugin: enabled (libasound ${ALSA_VERSION})")
+else()
+    message(STATUS "alsa plugin: disabled (libasound not found)")
+endif()
 
 # workout manpage
 set(DATADIR "${CMAKE_INSTALL_FULL_DATADIR}/${PROJECT_NAME}/config")

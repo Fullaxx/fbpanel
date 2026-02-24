@@ -61,9 +61,19 @@ maintenance.
 | `thermal` | CPU/board temperature label — `/sys/class/thermal`; colour-coded |
 | `tray` | Freedesktop system notification area (system tray) |
 | `user` | User avatar with popup action menu |
-| `volume` | OSS/ALSA volume control |
 | `wincmd` | "Show Desktop" button |
+| `windowlist` | Popup menu of all open windows; click to raise/focus |
 | `windowtitle` | Active window title label — updates via EWMH `_NET_ACTIVE_WINDOW` |
+| `xkill` | Click button then click any window to kill its client |
+| `xrandr` | Current display resolution label (e.g. "1920x1080") |
+| **Audio** | |
+| `alsa` | ALSA master volume control — scroll or click to adjust (replaces `volume`) |
+| **Keyboard** | |
+| `capslock` | Caps Lock / Num Lock / Scroll Lock state indicator |
+| `kbdlayout` | Active XKB keyboard layout label; click to cycle |
+| **Utilities** | |
+| `clipboard` | Clipboard history popup — click to restore an earlier entry |
+| `timer` | Configurable countdown timer; click to start/reset |
 
 ## Installation
 

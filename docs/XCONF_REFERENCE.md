@@ -319,19 +319,27 @@ Plugin {
 }
 ```
 
-### `volume` — ALSA Volume Control
+### `alsa` — ALSA Volume Control
+
+Replaces the deprecated OSS `volume` plugin.  Requires `libasound2`.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `Card` | string | `default` | ALSA card name passed to `snd_mixer_attach()` |
+| `Control` | string | `Master` | Mixer element name (e.g. `Master`, `PCM`) |
 
 ```
 Plugin {
-    type = volume
+    type = alsa
     Config {
-        Card    = default       # ALSA card name
-        Selem   = Master        # ALSA simple element name
-        Mute    = true          # Allow mute toggle on click
-        Step    = 5             # Volume step for scroll wheel (percent)
+        Card    = default
+        Control = Master
     }
 }
 ```
+
+Left-click toggles the slider popup.  Middle-click toggles mute.
+Scroll wheel adjusts by ±2%.  Polls every 500 ms for external changes.
 
 ### `deskno` / `deskno2` — Desktop Number
 
@@ -623,6 +631,151 @@ Plugin {
     Config {
         ClockFmt = %R
         ShowCalendar = true
+    }
+}
+```
+
+### `xrandr` — Display Resolution
+
+Shows the current resolution of the panel's monitor (e.g. "1920x1080").
+Updates automatically when the screen configuration changes.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `Command` | string | (none) | Shell command run on left-click (e.g. `arandr`) |
+
+```
+Plugin {
+    type = xrandr
+    Config {
+        Command = arandr
+    }
+}
+```
+
+---
+
+### `xkill` — Window Killer
+
+Click the panel button to enter kill mode (cursor changes to a skull).
+Then click any window to send `XKillClient()` for that client.
+Right-click or any non-left-click cancels.
+
+No configuration keys.
+
+```
+Plugin {
+    type = xkill
+}
+```
+
+---
+
+### `timer` — Countdown Timer
+
+A configurable countdown timer.  Left-click starts the timer; another click
+resets it.  On expiry the label flashes "DONE" until clicked.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `Duration` | int | `300` | Countdown duration in seconds (1..86400) |
+
+```
+Plugin {
+    type = timer
+    Config {
+        Duration = 300
+    }
+}
+```
+
+---
+
+### `clipboard` — Clipboard History
+
+Monitors the X11 CLIPBOARD selection.  Each time the owner changes and
+the content is text, it is stored in a history ring buffer.  Left-click
+pops up a menu; selecting an item restores it to the clipboard.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `MaxHistory` | int | `10` | Maximum number of entries to keep (1..100) |
+| `WatchPrimary` | bool | `false` | Also monitor the PRIMARY selection |
+
+```
+Plugin {
+    type = clipboard
+    Config {
+        MaxHistory   = 10
+        WatchPrimary = false
+    }
+}
+```
+
+---
+
+### `windowlist` — Window List
+
+A compact button that pops up a menu listing all open windows (from
+`_NET_CLIENT_LIST`).  Selecting an item raises and focuses that window.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `MaxTitle` | int | `50` | Max characters of title per menu item (0 = no limit) |
+
+```
+Plugin {
+    type = windowlist
+    Config {
+        MaxTitle = 50
+    }
+}
+```
+
+---
+
+### `capslock` — Lock Key Indicators
+
+Shows the state of Caps Lock, Num Lock, and/or Scroll Lock as coloured
+text labels.  Active locks are shown in bold; inactive ones are dimmed
+(or hidden when `HideInactive` is enabled).  Polls via XKB every 200 ms.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `ShowCaps` | bool | `true` | Show Caps Lock indicator ("A") |
+| `ShowNum` | bool | `true` | Show Num Lock indicator ("1") |
+| `ShowScroll` | bool | `false` | Show Scroll Lock indicator ("S") |
+| `HideInactive` | bool | `false` | Hide inactive indicators entirely |
+
+```
+Plugin {
+    type = capslock
+    Config {
+        ShowCaps     = true
+        ShowNum      = true
+        ShowScroll   = false
+        HideInactive = false
+    }
+}
+```
+
+---
+
+### `kbdlayout` — Keyboard Layout
+
+Shows the short name of the currently active XKB keyboard group (e.g.
+"us", "de", "fr").  Left-click cycles to the next layout; right-click
+shows a menu of all configured layouts.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `Period` | int | `500` | Poll interval in milliseconds (min: 100) |
+
+```
+Plugin {
+    type = kbdlayout
+    Config {
+        Period = 500
     }
 }
 ```

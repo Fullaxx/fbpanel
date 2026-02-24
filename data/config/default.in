@@ -314,7 +314,11 @@ Plugin {
 }
 
 plugin {
-    type = volume
+    type = alsa
+    config {
+        # Card    = default
+        # Control = Master
+    }
 }
 
 #plugin {
@@ -448,6 +452,77 @@ Plugin {
 #        # Device = intel_backlight
 #        Step = 5
 #        Period = 2000
+#    }
+#}
+
+## ──────────────────────────────────────────────
+## New Tier-2 plugins (disabled by default)
+## Uncomment any block below to activate.
+## ──────────────────────────────────────────────
+
+## ALSA Volume — libasound volume control (replaces OSS volume plugin)
+#Plugin {
+#    type = alsa
+#    config {
+#        Card    = default
+#        Control = Master
+#    }
+#}
+
+## Display Resolution — shows current screen resolution (e.g. 1920x1080)
+#Plugin {
+#    type = xrandr
+#    config {
+#        # Command = arandr
+#    }
+#}
+
+## Window Killer — click button then click a window to kill it
+#Plugin {
+#    type = xkill
+#}
+
+## Countdown Timer — left-click to start/reset
+#Plugin {
+#    type = timer
+#    config {
+#        Duration = 300
+#    }
+#}
+
+## Clipboard History — popup menu of recent clipboard entries
+#Plugin {
+#    type = clipboard
+#    config {
+#        MaxHistory   = 10
+#        WatchPrimary = false
+#    }
+#}
+
+## Window List — popup menu of all open windows
+#Plugin {
+#    type = windowlist
+#    config {
+#        MaxTitle = 50
+#    }
+#}
+
+## Lock Keys — Caps Lock / Num Lock / Scroll Lock indicator
+#Plugin {
+#    type = capslock
+#    config {
+#        ShowCaps     = true
+#        ShowNum      = true
+#        ShowScroll   = false
+#        HideInactive = false
+#    }
+#}
+
+## Keyboard Layout — show and cycle XKB layouts (e.g. us, de, fr)
+#Plugin {
+#    type = kbdlayout
+#    config {
+#        Period = 500
 #    }
 #}
 

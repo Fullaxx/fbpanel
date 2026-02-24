@@ -314,9 +314,19 @@ The plugin exports a single `plugin_class *class_ptr` symbol and calls
 | `thermal` | CPU/board temperature label (`/sys/class/thermal`; colour-coded) |
 | `tray` | System tray (freedesktop XEMBED protocol) |
 | `user` | Current username label |
-| `volume` | ALSA master volume control |
 | `wincmd` | Send EWMH commands to windows |
+| `windowlist` | Popup menu of all open windows; click to raise/focus |
 | `windowtitle` | Active window title label (EWMH `_NET_ACTIVE_WINDOW`) |
+| `xkill` | Click panel button then click any window to kill its client |
+| `xrandr` | Current display resolution label (e.g. "1920x1080") |
+| **Audio** | |
+| `alsa` | ALSA master volume control via libasound (replaces OSS `volume` plugin) |
+| **Keyboard** | |
+| `capslock` | Caps Lock / Num Lock / Scroll Lock state indicator via XKB |
+| `kbdlayout` | Active XKB keyboard layout; left-click cycles, right-click shows menu |
+| **Utilities** | |
+| `clipboard` | Clipboard history popup via GTK2 `GtkClipboard` owner-change signal |
+| `timer` | Configurable countdown timer; states idle / running / alarmed |
 
 ---
 
