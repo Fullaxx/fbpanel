@@ -37,7 +37,7 @@ typedef struct {
  * "WxH".  Called on startup and on each "size-changed" signal.
  */
 static void
-xrandr_update(GtkWidget *widget, GdkScreen *scr, xrandr_priv *priv)
+xrandr_update(GdkScreen *scr, xrandr_priv *priv)
 {
     GdkRectangle geom;
     gchar text[32];
@@ -45,7 +45,6 @@ xrandr_update(GtkWidget *widget, GdkScreen *scr, xrandr_priv *priv)
     int mon;
 
     ENTER;
-    (void) widget;
 
     mon = (priv->plugin.panel
            && priv->plugin.panel->xineramaHead >= 0)
@@ -102,7 +101,7 @@ xrandr_constructor(plugin_instance *p)
                                       G_CALLBACK(xrandr_update), priv);
 
     /* Initial update. */
-    xrandr_update(NULL, scr, priv);
+    xrandr_update(scr, priv);
 
     if (priv->command && priv->command[0]) {
         gtk_widget_add_events(p->pwid, GDK_BUTTON_PRESS_MASK);

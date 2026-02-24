@@ -1,3 +1,10 @@
+## Version: 8.4.5 — 2026-02-24
+* Fix BUG-018: xrandr plugin SIGSEGV on every resize event
+  - `xrandr_update` had a spurious leading `GtkWidget*` parameter;
+    GdkScreen "size-changed" dispatches `(GdkScreen*, gpointer)` so the
+    `scr` and `priv` arguments were shifted by one slot, landing `priv`
+    as an undefined stack/register value → NULL-deref crash at 0x9
+
 ## Version: 8.4.4 — 2026-02-24
 * Reorganise default config: move alsa plugin into Tier-2 section (alongside
   the other new plugins) and enable alsa, xrandr, clipboard, and capslock by
