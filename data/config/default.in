@@ -313,13 +313,6 @@ Plugin {
     }
 }
 
-plugin {
-    type = alsa
-    config {
-        # Card    = default
-        # Control = Master
-    }
-}
 
 #plugin {
 #    type = battery
@@ -460,14 +453,22 @@ Plugin {
 ## Uncomment any block below to activate.
 ## ──────────────────────────────────────────────
 
+## ALSA Volume — libasound volume control
+Plugin {
+    type = alsa
+    config {
+        # Card    = default
+        # Control = Master
+    }
+}
 
 ## Display Resolution — shows current screen resolution (e.g. 1920x1080)
-#Plugin {
-#    type = xrandr
-#    config {
-#        # Command = arandr
-#    }
-#}
+Plugin {
+    type = xrandr
+    config {
+        # Command = arandr
+    }
+}
 
 ## Window Killer — click button then click a window to kill it
 #Plugin {
@@ -483,13 +484,13 @@ Plugin {
 #}
 
 ## Clipboard History — popup menu of recent clipboard entries
-#Plugin {
-#    type = clipboard
-#    config {
-#        MaxHistory   = 10
-#        WatchPrimary = false
-#    }
-#}
+Plugin {
+    type = clipboard
+    config {
+        MaxHistory   = 10
+        WatchPrimary = false
+    }
+}
 
 ## Window List — popup menu of all open windows
 #Plugin {
@@ -500,15 +501,15 @@ Plugin {
 #}
 
 ## Lock Keys — Caps Lock / Num Lock / Scroll Lock indicator
-#Plugin {
-#    type = capslock
-#    config {
-#        ShowCaps     = true
-#        ShowNum      = true
-#        ShowScroll   = false
-#        HideInactive = false
-#    }
-#}
+Plugin {
+    type = capslock
+    config {
+        ShowCaps     = true
+        ShowNum      = true
+        ShowScroll   = false
+        HideInactive = false
+    }
+}
 
 ## Keyboard Layout — show and cycle XKB layouts (e.g. us, de, fr)
 #Plugin {

@@ -1,3 +1,8 @@
+## Version: 8.4.4 — 2026-02-24
+* Reorganise default config: move alsa plugin into Tier-2 section (alongside
+  the other new plugins) and enable alsa, xrandr, clipboard, and capslock by
+  default; remove the legacy active alsa block that replaced the OSS volume plugin
+
 ## Version: 8.4.3 — 2026-02-24
 * Remove duplicate commented alsa plugin block from default config
 
