@@ -154,7 +154,7 @@ Plugin {
 	    item {
 		name = Terminal
 		icon = terminal
-		action = x-terminal
+		action = xterm
 	    }
             item {
                 name = Lock Display
@@ -203,12 +203,12 @@ Plugin {
         button {
             icon = terminal
             tooltip = Terminal
-            action = x-terminal-emulator
+            action = xterm
         }
         button {
             icon = web-browser
             tooltip = Web Browser
-            action = x-www-browser
+            action = xdg-open http://
         }
     }
 }

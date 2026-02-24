@@ -1,3 +1,9 @@
+## Version: 8.4.2 — 2026-02-24
+* Fix default config actions for cross-distro portability (Fedora / Arch / etc.):
+  - launchbar terminal: `x-terminal-emulator` → `xterm` (Debian-specific alternative)
+  - launchbar browser:  `x-www-browser` → `xdg-open http://` (Debian-specific alternative)
+  - menu terminal:      `x-terminal` → `xterm`
+
 ## Version: 8.4.1 — 2026-02-24
 * Fix default launchbar actions in default config:
   - `x-file-manager` → `xdg-open .` (x-file-manager is not a standard alternative)
