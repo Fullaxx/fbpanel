@@ -1,3 +1,7 @@
+## Version: 8.4.7 — 2026-02-24
+* Fix timer.c build failure: add forward declaration for timer_flash so that
+  timer_tick can reference it before its definition in the translation unit
+
 ## Version: 8.4.6 — 2026-02-24
 * Fix BUG-019: timer plugin alarm never flashes (logic error)
   - Flash timer was installed with `timer_tick` instead of `timer_flash`;

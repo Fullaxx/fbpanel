@@ -79,6 +79,10 @@ timer_set_label(timer_priv *priv)
  * Timer callbacks
  * ------------------------------------------------------------------------- */
 
+/* Forward declaration -- timer_flash is defined after timer_tick but called
+ * from within it when the countdown reaches zero. */
+static gboolean timer_flash(timer_priv *priv);
+
 /* Countdown tick -- called every second while running. */
 static gboolean
 timer_tick(timer_priv *priv)
