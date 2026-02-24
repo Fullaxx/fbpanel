@@ -1,3 +1,103 @@
+## Version: 8.3.2 — 2026-02-23
+* Fix all "Move to workspace" submenu items (BUG-017 extended)
+* Numbered workspace items were silently broken: button_press_event never fires
+  on windowless GtkMenuItems; send_to_workspace was never called
+* Rewrote send_to_workspace as a proper 2-arg activate handler, consistent
+  with menu_raise_window / menu_iconify_window / menu_close_window
+
+## Version: 8.3.1 — 2026-02-23
+* Fix SIGSEGV on "Move to workspace → All workspaces" (BUG-017)
+* "All workspaces" menu item used activate signal with a 3-arg callback;
+  GTK only passes 2 args to activate handlers → garbage tb pointer → SIGSEGV
+
+## Version: 8.3.0 — 2026-02-23
+* Add 8 Tier-1 system monitor plugins:
+  - brightness: backlight control via /sys/class/backlight; scroll-wheel adjust
+  - cpufreq: CPU clock frequency from /sys/devices/system/cpu/cpuN/cpufreq
+  - diskio: disk read/write throughput chart from /proc/diskstats
+  - diskspace: filesystem usage progress bar via statvfs(3)
+  - loadavg: system load average label from /proc/loadavg (1m/5m/15m)
+  - swap: swap usage progress bar from /proc/meminfo; hides when no swap
+  - thermal: CPU/board temperature from /sys/class/thermal (colour-coded)
+  - windowtitle: active window title via EWMH _NET_ACTIVE_WINDOW
+* All plugins soft-disable cleanly when data source is unavailable
+* Update README, ARCHITECTURE.md, XCONF_REFERENCE.md, default config
+
+## Version: 8.2.7 — 2026-02-23
+* Add link to berte/fbpanel3 (GTK3 port) in README Related projects
+
+## Version: 8.2.6 — 2026-02-23
+* Add aanatoly/fbpanel and fbpanel/fbpanel related project links to README
+
+## Version: 8.2.5 — 2026-02-23
+* Remove obsolete Gentoo ebuilds from contrib/
+
+## Version: 8.2.4 — 2026-02-23
+* Rewrite README.md: history, full plugin table, installation tables
+* Add docs/MENU_ICON.md: explains menu button icon resolution order
+
+## Version: 8.2.3 — 2026-02-23
+* Add Fedora 42, 41, 40 RPM build and release CI targets
+* Update README with Fedora package filenames
+
+## Version: 8.2.2 — 2026-02-23
+* Add Fedora 43 RPM release to CI packaging
+
+## Version: 8.2.1 — 2026-02-23
+* Fix C23 empty-parameter-list breakage with GCC 15 (Fedora 43)
+* Replace `foo()` declarations with `foo(void)` throughout panel source
+
+## Version: 8.2.0 — 2026-02-23
+* Add debug build targets and debug .deb packaging support
+* CMakeLists.txt: default to Release; improve Debug/RelWithDebInfo flags
+* CPack: suffix package name by build type (fbpanel / fbpanel-dbg / fbpanel-dbgsym)
+* Add CMakePresets.json (release/debug/relwithdebinfo presets)
+* Rewrite INSTALL.md; update docs/DEBUGGING.md
+
+## Version: 8.1.8 — 2026-02-23
+* Fix SIGSEGV crash when /dev/mixer absent (BUG-016)
+* Fix icon-theme-change logic in meter plugin (BUG-015)
+
+## Version: 8.1.7 — 2026-02-23
+* Reorganise misc.[ch]: split into ewmh.[ch] and fbwidgets.[ch]
+* ewmh.[ch]: X11 atom table and EWMH/ICCCM property helpers
+* fbwidgets.[ch]: GTK widget factory (fb_image, fb_button, fb_pixbuf, colors)
+* misc.h includes both for backward compatibility
+
+## Version: 8.1.6 — 2026-02-23
+* Fix all 14 tracked bugs (BUG-001 through BUG-014)
+* Fixes cover crashes, resource leaks, logic errors, type mismatches, dead code
+
+## Version: 8.1.5 — 2026-02-23
+* panel: skip failed plugins instead of calling exit(1)
+* plugins: soft-disable pattern — return 0 from constructor with g_message()
+
+## Version: 8.1.4 — 2026-02-23
+* build: fix version detection in GitHub Actions shallow clones
+
+## Version: 8.1.3 — 2026-02-23
+* build: derive package version from git tag automatically
+
+## Version: 8.1.2 — 2026-02-23
+* fix: remove remaining */ sequences from block comments in power_supply.c
+
+## Version: 8.1.1 — 2026-02-23
+* fix: repair broken block comment in power_supply.h; add CLAUDE.md
+
+## Version: 8.1.0 — 2026-02-23
+* Add comprehensive inline documentation throughout panel/ and plugins/
+* Add docs/: ARCHITECTURE.md, BUGS_AND_ISSUES.md, DEBUGGING.md,
+  GTK_WIDGET_LIFECYCLE.md, LIBRARY_USAGE.md, MEMORY_MODEL.md,
+  PLUGIN_REFERENCE.md, XCONF_REFERENCE.md
+
+## Version: 8.0.0 — 2026-02-22
+* Import fbpanel_eleksir (GTK2 v7.2) as new baseline
+* Migrate build system to CMake
+* Add GitHub Actions CI (build on Ubuntu noble/jammy/focal, Debian trixie/bookworm/bullseye)
+* Add CPack DEB packaging and GitHub release automation
+
+---
+
 ## Version: 7.2
 * Add cmake rules to build fbpanel
 * Get rid of previous python2-bsed build system

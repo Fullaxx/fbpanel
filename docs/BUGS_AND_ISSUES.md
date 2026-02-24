@@ -1,7 +1,7 @@
 # Bugs and Issues
 
 This file documents bugs and code issues found during the inline-comment review
-of the fbpanel source tree.  All 16 tracked bugs have been fixed.
+of the fbpanel source tree.  All 17 tracked bugs have been fixed.
 
 Severity levels used below:
 - **CRASH** – can cause a segfault, use-after-free, or other process-terminating fault

@@ -6,10 +6,13 @@ GTK2, GLib, X11, GModule, and the C standard library.
 
 ---
 
-## Tier 1 — Low complexity, no new dependencies
+## Tier 1 — Low complexity, no new dependencies ✓ COMPLETED in v8.3.0
+
+All 8 Tier-1 plugins were implemented and shipped in v8.3.0 (commit 1882819).
+They are now part of the mainline plugin set and documented in XCONF_REFERENCE.md.
 
 These read from `/proc` or `/sys`, or use existing X11/EWMH infrastructure
-already wired up in fbpanel.  Any of these could be written in an afternoon.
+already wired up in fbpanel.
 
 ### `windowtitle`
 Show the title of the currently active window in a label on the panel.

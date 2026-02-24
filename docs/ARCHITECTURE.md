@@ -91,29 +91,50 @@ The main entry point and orchestrator.
 | `fbev` | `FbEv *` | EWMH event bus GObject |
 | `the_panel` | `panel *` | Pointer to the single panel instance |
 
-All X11 atoms are declared `extern Atom a_NET_*` in `panel.h` and
-defined in `misc.c:resolve_atoms()`.
+All X11 atoms are declared `extern Atom a_NET_*` in `ewmh.h` and
+defined in `ewmh.c:resolve_atoms()`.
+
+---
+
+### `ewmh.c` / `ewmh.h`
+
+X11 atom table and EWMH/ICCCM property helpers.  Split from `misc.c` in v8.1.7.
+
+**Responsibilities:**
+- Declares and interns all `extern Atom a_NET_*` / `a_WM_*` atoms via
+  `resolve_atoms()` (called from `fb_init()`).
+- Provides `GDK_DPY` macro: `GDK_DISPLAY_XDISPLAY(gdk_display_get_default())`.
+- X11 message helpers: `Xclimsg()`, `Xclimsgwm()`.
+- Property readers: `get_xaproperty()`, `get_utf8_property()`,
+  `get_utf8_property_list()`, `get_textproperty()`.
+- EWMH accessors: `get_net_current_desktop()`, `get_net_wm_desktop()`,
+  `get_net_wm_state()`, `get_net_wm_window_type()`, `get_net_number_of_desktops()`.
+
+---
+
+### `fbwidgets.c` / `fbwidgets.h`
+
+GTK widget factory helpers.  Split from `misc.c` in v8.1.7.
+
+**Responsibilities:**
+- Pixbuf/button factory: `fb_pixbuf_new()`, `fb_image_new()`, `fb_button_new()`.
+- Calendar helper: `fb_create_calendar()`.
+- Color utilities: `gcolor2rgb24()`, `gdk_color_to_RRGGBB()`.
+- GTK metric: `get_button_spacing()`.
 
 ---
 
 ### `misc.c` / `misc.h`
 
-Central utility module shared by the panel and all plugins.
+Genuine panel utilities.  `misc.h` includes `ewmh.h` and `fbwidgets.h` for
+backward compatibility so plugin code need not change its `#include` directives.
 
 **Responsibilities:**
-- Defines and interns all X11 atoms via `resolve_atoms()` (called from `fb_init()`).
-- Provides `GDK_DPY` macro: `GDK_DISPLAY_XDISPLAY(gdk_display_get_default())`.
-- X11 helpers: `Xclimsg()`, `Xclimsgwm()`, `get_xaproperty()`,
-  `get_utf8_property()`, `get_utf8_property_list()`, `get_textproperty()`.
-- EWMH helpers: `get_net_current_desktop()`, `get_net_wm_desktop()`,
-  `get_net_wm_state()`, `get_net_wm_window_type()`, `get_net_number_of_desktops()`.
 - Panel geometry: `calculate_position()` — places the panel window on screen
   according to edge/align/margin/size config.
-- Pixbuf/button factory: `fb_pixbuf_new()`, `fb_image_new()`, `fb_button_new()`.
-- Calendar helper: `fb_create_calendar()`.
 - String utilities: `expand_tilda()`, `indent()`.
-- Color utilities: `gcolor2rgb24()`, `gdk_color_to_RRGGBB()`.
-- GTK metric: `get_button_spacing()`.
+- Enum / string lookup tables: `str2num()`, `num2str()` and the various
+  `bool_enum`, `edge_enum`, `align_enum` tables used by `XCG()`.
 
 ---
 
