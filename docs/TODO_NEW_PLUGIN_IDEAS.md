@@ -74,6 +74,52 @@ Adjust screen backlight brightness via scroll wheel, show level as an icon.
 These require non-trivial GTK2 work, a new popup window, or a small external
 library that is almost universally available.
 
+Priority recommendations (highest first): `alsa` > `hwmon` > `windowlist` >
+`capslock` > `kbdlayout`.  All others are lower priority or more niche.
+
+### `alsa` ★ RECOMMENDED #1
+Improved ALSA volume control to replace or complement the existing `volume` plugin.
+- The current `volume` plugin uses the raw OSS `/dev/mixer` interface, which is
+  deprecated on modern kernels and absent on many systems.
+- New `alsa` plugin uses `libasound` (`libasound2-dev` / `alsa-lib-devel`) directly:
+  `snd_mixer_open`, `snd_mixer_attach`, `snd_mixer_selem_get_playback_volume`.
+- Scroll wheel changes volume; click toggles mute.  Icon levels from the `meter`
+  base class.  Configurable: card name (default "default"), control name
+  (default "Master").
+- Dependency: `libasound2` — universally installed on any ALSA system.
+- The existing `volume` plugin can remain as an OSS fallback.
+
+### `hwmon` ★ RECOMMENDED #2
+Hardware sensor monitor: fan speeds, voltages, additional temperatures.
+- The existing `thermal` plugin covers `/sys/class/thermal/` (ACPI zones only).
+  Many systems expose richer data only through `/sys/class/hwmon/hwmon*/`:
+  CPU die temperature (coretemp), GPU temperature, fan RPMs, voltages.
+- Poll every 2–5 s; display as coloured text or icon level.
+- Configurable: hwmon device index, sensor file name (e.g. `temp1_input`,
+  `fan1_input`), label, warn/critical thresholds, unit (°C / RPM / mV).
+- No new deps — pure sysfs reads.
+- Complements `thermal` rather than replacing it.
+
+### `windowlist` ★ RECOMMENDED #3
+Popup menu of all open windows; click to raise/focus.
+- Alternative to the taskbar for minimal panels where a full taskbar wastes space.
+- Data source: `_NET_CLIENT_LIST` + `_NET_WM_NAME` + `_NET_WM_ICON` — all
+  already available via `fbev` and `ewmh.h` helpers.
+- Single small button (e.g. a window-stack icon) that pops up a `GtkMenu`
+  listing all windows; selecting an item sends `_NET_ACTIVE_WINDOW`.
+- Subscribe to `fbev "client_list"` to rebuild the menu on window open/close.
+- No new deps; moderate X11/GTK2 complexity.
+
+### `capslock` ★ RECOMMENDED #4
+Indicator for Caps Lock, Num Lock, and/or Scroll Lock state.
+- Data source: `XQueryPointer` or `XkbGetIndicatorState` — X11 already linked.
+  `XkbGetIndicatorState(dpy, XkbUseCoreKbd, &state)` returns a bitmask;
+  bit 0 = Caps Lock, bit 1 = Num Lock, bit 2 = Scroll Lock.
+- Poll every ~200 ms, or install an `XkbEvent` filter for zero-latency updates.
+- Display as coloured label ("A" for caps, "1" for num) or theme icons.
+- Configurable: which indicators to show, active/inactive colours.
+- No new deps; straightforward XKB query.
+
 ### `calendar`
 Popup calendar on clicking the clock.
 - GTK2 already ships `GtkCalendar` — no new dependency.
@@ -82,13 +128,33 @@ Popup calendar on clicking the clock.
 - Could be implemented as a wrapper around `tclock` or `dclock` rather than a
   fully independent plugin.
 
-### `kbdlayout`
+### `kbdlayout` ★ RECOMMENDED #5
 Show and cycle keyboard layouts (e.g. "us → de → fr").
 - Data source: XKB extension (`XkbGetState`, `XkbGetNames`) — X11 already
   linked.
 - Click cycles to the next layout; right-click shows a menu of all configured
   layouts.
 - Medium X11 complexity: XKB API is verbose but well-documented.
+- Note: `capslock` (above) shares the XKB code path; implement together.
+
+### `xrandr`
+Display output switcher / resolution indicator.
+- Data source: XRandR extension (`libXrandr`) — small dep, widely available.
+- Read-only: show current resolution and refresh rate as text (e.g. "1920×1080@60").
+- Interactive variant: right-click menu to switch outputs on/off or change
+  resolution; spawns `xrandr` command via `run_app()` to avoid linking libXrandr.
+- Dependency: `libxrandr-dev` / `libXrandr-devel` for the native path, or none
+  if shelling out to `xrandr`.
+- Most useful on laptops (lid close, external monitor connect).
+
+### `xkill`
+Click a panel button, then click any window to kill it.
+- Pure X11: call `XKillClient(dpy, win)` on the selected window's XID.
+  Alternatively shell to `xkill` via `run_app("xkill")`.
+- On panel button click, change the cursor to a crosshair (via GTK grab or
+  `XGrabPointer`), then wait for the next button-press event to identify the
+  target window.
+- No new deps (X11 already linked).  Low real-world usage but simple to implement.
 
 ### `timer`
 A configurable countdown timer with a visual indicator.
@@ -121,6 +187,38 @@ Show GPU utilisation and/or VRAM usage.
 - NVIDIA: `nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader`
   via `g_spawn` — no new deps but nvidia-smi must be present.
 - Complexity is mostly in handling the three different vendor paths gracefully.
+
+### `uptime`
+Show system uptime as text (e.g. "up 3d 14h").
+- Data source: `/proc/uptime` (one floating-point value in seconds) — no deps.
+- Simpler even than `loadavg`; poll every 60 s.
+- Low priority: most users already have this from `genmon` with a one-liner.
+- Format configurable: compact ("3d14h"), verbose ("3 days, 14 hours"), etc.
+
+### `netstat`
+Count of active network connections (TCP established, listening ports).
+- Data source: `/proc/net/tcp` and `/proc/net/tcp6` — count non-zero state rows.
+- Poll every 5 s; display as text ("42 conn").
+- Low priority: niche use case; most users who need this already use `genmon`.
+- Could be extended to show per-interface packet counts (overlaps with `net`).
+
+### `screenshot`
+One-click screenshot button.
+- Implementation: call `run_app("scrot")` or `run_app("gnome-screenshot")` via
+  the existing `run.h` helper — no new code beyond a button.
+- Could support a 3-second countdown timer before capture.
+- Very low priority: duplicates what `launchbar` already does with a custom
+  command entry.  Only worth a dedicated plugin if panel-aware cropping
+  (e.g. excluding the panel from the screenshot) is desired.
+
+### `scratchpad`
+A hidden window that slides in/out as a quick note pad or terminal.
+- Creates a borderless `GtkWindow` that slides in from the panel edge on click.
+  Panel button toggles visibility.
+- Contains an embedded `GtkTextView` (notes) or spawns a terminal inside a
+  `GtkSocket` (xterm/urxvt via `-into` flag).
+- High GTK2 complexity (animation, focus management, socket embedding).
+- Low priority: niche; most users prefer a dedicated scratchpad tool.
 
 ---
 
