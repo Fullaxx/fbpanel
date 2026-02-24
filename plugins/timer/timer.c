@@ -97,7 +97,7 @@ timer_tick(timer_priv *priv)
         timer_set_label(priv);
         priv->tick_id = 0;
         /* Start flashing at 500 ms intervals. */
-        priv->flash_id = g_timeout_add(500, (GSourceFunc) timer_tick, priv);
+        priv->flash_id = g_timeout_add(500, (GSourceFunc) timer_flash, priv);
         RET(FALSE);
     }
 

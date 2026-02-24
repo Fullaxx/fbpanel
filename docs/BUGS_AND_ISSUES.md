@@ -1,7 +1,7 @@
 # Bugs and Issues
 
 This file documents bugs and code issues found during the inline-comment review
-of the fbpanel source tree.  All 18 tracked bugs have been fixed.
+of the fbpanel source tree.  All 19 tracked bugs have been fixed.
 
 Severity levels used below:
 - **CRASH** – can cause a segfault, use-after-free, or other process-terminating fault
@@ -430,3 +430,4 @@ g_signal_connect(G_OBJECT(mi), "activate",
 | BUG-016  | plugins/volume/volume.c       | CRASH           | Fixed   | `meter_destructor` not called on `/dev/mixer` failure → use-after-free |
 | BUG-017  | plugins/taskbar/taskbar.c     | CRASH + LOGIC   | Fixed   | All "Move to workspace" items broken: numbered items use button_press_event (never fires on windowless GtkMenuItems); "All workspaces" uses activate with 3-arg callback → SIGSEGV |
 | BUG-018  | plugins/xrandr/xrandr.c       | CRASH           | Fixed   | `xrandr_update` callback signature has spurious leading `GtkWidget*` parameter; GdkScreen `"size-changed"` dispatches `(GdkScreen*, gpointer)` so `scr` and `priv` args are shifted → NULL-deref SIGSEGV at 0x9 on every resize event |
+| BUG-019  | plugins/timer/timer.c         | LOGIC ERROR     | Fixed   | Flash timer installed with `timer_tick` instead of `timer_flash`; `timer_tick` immediately returns FALSE in ALARMED state, so the flash timer self-cancels on first call and the "DONE" label never flashes |

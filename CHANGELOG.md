@@ -1,3 +1,9 @@
+## Version: 8.4.6 — 2026-02-24
+* Fix BUG-019: timer plugin alarm never flashes (logic error)
+  - Flash timer was installed with `timer_tick` instead of `timer_flash`;
+    `timer_tick` returns FALSE immediately in ALARMED state, self-cancelling
+    the timer on its first call so the "DONE" label never toggled
+
 ## Version: 8.4.5 — 2026-02-24
 * Fix BUG-018: xrandr plugin SIGSEGV on every resize event
   - `xrandr_update` had a spurious leading `GtkWidget*` parameter;
