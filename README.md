@@ -86,6 +86,7 @@ Each tagged release publishes pre-built packages on the
 
 | Distro | Asset filename |
 |--------|----------------|
+| Ubuntu 26.04 (Resolute) | `fbpanel_<version>_amd64_resolute.deb` |
 | Ubuntu 24.04 (Noble) | `fbpanel_<version>_amd64_noble.deb` |
 | Ubuntu 22.04 (Jammy) | `fbpanel_<version>_amd64_jammy.deb` |
 | Ubuntu 20.04 (Focal) | `fbpanel_<version>_amd64_focal.deb` |

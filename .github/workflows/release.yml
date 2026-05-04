@@ -16,6 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - distro: resolute
+            pkg_gen: DEB
+            pkg_ext: deb
+            libdir: lib
           - distro: noble
             pkg_gen: DEB
             pkg_ext: deb

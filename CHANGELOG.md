@@ -1,3 +1,6 @@
+## Version: 8.5.0 — 2026-05-04
+* Add Ubuntu 26.04 (Resolute) to build and release CI matrices
+
 ## Version: 8.4.7 — 2026-02-24
 * Fix timer.c build failure: add forward declaration for timer_flash so that
   timer_tick can reference it before its definition in the translation unit
