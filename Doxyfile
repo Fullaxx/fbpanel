@@ -372,7 +372,10 @@ TOC_INCLUDE_HEADINGS   = 5
 # The default value is: DOXYGEN.
 # This tag requires that the tag MARKDOWN_SUPPORT is set to YES.
 
-MARKDOWN_ID_STYLE      = DOXYGEN
+# Commented out: not recognized by Debian bookworm's Doxygen 1.9.4 (the CI
+# build-check target), which treats "unsupported tag" config warnings as
+# failures under WARN_AS_ERROR=FAIL_ON_WARNINGS. Already at its default.
+#MARKDOWN_ID_STYLE      = DOXYGEN
 
 # When enabled doxygen tries to link words that correspond to documented
 # classes, or namespaces to their corresponding documentation. Such a link can
@@ -504,7 +507,8 @@ NUM_PROC_THREADS       = 1
 # Possible values are: YES, NO, DATETIME and DATE.
 # The default value is: NO.
 
-TIMESTAMP              = NO
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#TIMESTAMP              = NO
 
 #---------------------------------------------------------------------------
 # Build related configuration options
@@ -629,7 +633,9 @@ INTERNAL_DOCS          = NO
 # Possible values are: SYSTEM, NO and YES.
 # The default value is: SYSTEM.
 
-CASE_SENSE_NAMES       = SYSTEM
+# YES (not the newer SYSTEM enum value) for Doxygen 1.9.4 (CI) compat;
+# equivalent in effect on Linux's case-sensitive filesystems anyway.
+CASE_SENSE_NAMES       = YES
 
 # If the HIDE_SCOPE_NAMES tag is set to NO then doxygen will show members with
 # their full class and namespace scopes in the documentation. If set to YES, the
@@ -885,7 +891,8 @@ WARN_NO_PARAMDOC       = NO
 # will automatically be disabled.
 # The default value is: NO.
 
-WARN_IF_UNDOC_ENUM_VAL = NO
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#WARN_IF_UNDOC_ENUM_VAL = NO
 
 # If the WARN_AS_ERROR tag is set to YES then doxygen will immediately stop when
 # a warning is encountered. If the WARN_AS_ERROR tag is set to FAIL_ON_WARNINGS
@@ -963,7 +970,8 @@ INPUT_ENCODING         = UTF-8
 # form: pattern=encoding (like *.php=ISO-8859-1). See cfg_input_encoding
 # "INPUT_ENCODING" for further information on supported encodings.
 
-INPUT_FILE_ENCODING    =
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#INPUT_FILE_ENCODING    =
 
 # If the value of the INPUT tag contains directories, you can use the
 # FILE_PATTERNS tag to specify one or more wildcard patterns (like *.cpp and
@@ -1121,7 +1129,8 @@ USE_MDFILE_AS_MAINPAGE = README.md
 # be processed before the automatic comment starts.
 # Minimum value: 7, maximum value: 10000, default value: 72.
 
-FORTRAN_COMMENT_AFTER  = 72
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#FORTRAN_COMMENT_AFTER  = 72
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -1374,7 +1383,12 @@ HTML_EXTRA_FILES       =
 # The default value is: AUTO_LIGHT.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_COLORSTYLE        = LIGHT
+# doxygen-awesome-css's docs call for "LIGHT" here, but the HTML_COLORSTYLE
+# tag itself doesn't exist before Doxygen 1.9.5, and Debian bookworm's CI
+# target ships 1.9.4 -- commented out for cross-version compat. The theme's
+# own CSS still applies; only Doxygen's separate built-in color generation
+# is affected.
+#HTML_COLORSTYLE        = LIGHT
 
 # The HTML_COLORSTYLE_HUE tag controls the color of the HTML output. Doxygen
 # will adjust the colors in the style sheet and background images according to
@@ -1430,7 +1444,8 @@ HTML_DYNAMIC_SECTIONS  = NO
 # The default value is: YES.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_CODE_FOLDING      = YES
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#HTML_CODE_FOLDING      = YES
 
 # With HTML_INDEX_NUM_ENTRIES one can control the preferred number of entries
 # shown in the various tree structured indices initially; the user can expand
@@ -1570,7 +1585,8 @@ TOC_EXPAND             = NO
 # protocol see https://www.sitemaps.org
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-SITEMAP_URL            =
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#SITEMAP_URL            =
 
 # If the GENERATE_QHP tag is set to YES and both QHP_NAMESPACE and
 # QHP_VIRTUAL_FOLDER are set, an additional index file will be generated that
@@ -2270,7 +2286,8 @@ GENERATE_AUTOGEN_DEF   = NO
 # database with symbols found by doxygen stored in tables.
 # The default value is: NO.
 
-GENERATE_SQLITE3       = NO
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#GENERATE_SQLITE3       = NO
 
 # The SQLITE3_OUTPUT tag is used to specify where the Sqlite3 database will be
 # put. If a relative path is entered the value of OUTPUT_DIRECTORY will be put
@@ -2278,7 +2295,8 @@ GENERATE_SQLITE3       = NO
 # The default directory is: sqlite3.
 # This tag requires that the tag GENERATE_SQLITE3 is set to YES.
 
-SQLITE3_OUTPUT         = sqlite3
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#SQLITE3_OUTPUT         = sqlite3
 
 # The SQLITE3_OVERWRITE_DB tag is set to YES, the existing doxygen_sqlite3.db
 # database file will be recreated with each doxygen run. If set to NO, doxygen
@@ -2286,7 +2304,8 @@ SQLITE3_OUTPUT         = sqlite3
 # The default value is: YES.
 # This tag requires that the tag GENERATE_SQLITE3 is set to YES.
 
-SQLITE3_RECREATE_DB    = YES
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#SQLITE3_RECREATE_DB    = YES
 
 #---------------------------------------------------------------------------
 # Configuration options related to the Perl module output
@@ -2491,7 +2510,8 @@ DOT_NUM_THREADS        = 0
 # The default value is: fontname=Helvetica,fontsize=10.
 # This tag requires that the tag HAVE_DOT is set to YES.
 
-DOT_COMMON_ATTR        = "fontname=Helvetica,fontsize=10"
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#DOT_COMMON_ATTR        = "fontname=Helvetica,fontsize=10"
 
 # DOT_EDGE_ATTR is concatenated with DOT_COMMON_ATTR. For elegant style you can
 # add 'arrowhead=open, arrowtail=open, arrowsize=0.5'. <a
@@ -2500,7 +2520,8 @@ DOT_COMMON_ATTR        = "fontname=Helvetica,fontsize=10"
 # The default value is: labelfontname=Helvetica,labelfontsize=10.
 # This tag requires that the tag HAVE_DOT is set to YES.
 
-DOT_EDGE_ATTR          = "labelfontname=Helvetica,labelfontsize=10"
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#DOT_EDGE_ATTR          = "labelfontname=Helvetica,labelfontsize=10"
 
 # DOT_NODE_ATTR is concatenated with DOT_COMMON_ATTR. For view without boxes
 # around nodes set 'shape=plain' or 'shape=plaintext' <a
@@ -2508,7 +2529,8 @@ DOT_EDGE_ATTR          = "labelfontname=Helvetica,labelfontsize=10"
 # The default value is: shape=box,height=0.2,width=0.4.
 # This tag requires that the tag HAVE_DOT is set to YES.
 
-DOT_NODE_ATTR          = "shape=box,height=0.2,width=0.4"
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#DOT_NODE_ATTR          = "shape=box,height=0.2,width=0.4"
 
 # You can set the path where dot can find font specified with fontname in
 # DOT_COMMON_ATTR and others dot attributes.
@@ -2808,7 +2830,8 @@ DOT_CLEANUP            = YES
 # <outfile_format> -o <outputfile> <inputfile>. The external tool should support
 # output file formats "png", "eps", "svg", and "ismap".
 
-MSCGEN_TOOL            =
+# Doxygen 1.9.4 (CI) compat: unsupported tag, already at default.
+#MSCGEN_TOOL            =
 
 # The MSCFILE_DIRS tag can be used to specify one or more directories that
 # contain msc files that are included in the documentation (see the \mscfile
