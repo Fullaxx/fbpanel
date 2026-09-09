@@ -1,23 +1,25 @@
-/*
- * image.c -- fbpanel static image plugin.
+/**
+ * @file
+ * @brief Static image plugin: shows an image file scaled to fit the panel.
  *
  * Displays a static image (loaded from a file path) scaled to fit the panel
- * height (or width for vertical panels).  Optionally shows a tooltip.
+ * height (or width for vertical panels). Optionally shows a tooltip.
  *
  * The image is rendered as a GtkImage from a GdkPixmap+GdkBitmap pair
  * (GDK2-style rendering with optional transparency mask).
  *
  * Config keys:
- *   image   = /path/to/image.png   File path to display (required).
- *                                   "~" at start is expanded to $HOME.
- *   tooltip = "Some text"          Tooltip markup (optional).
+ *   - image   = /path/to/image.png   File path to display (required).
+ *                                     "~" at start is expanded to $HOME.
+ *   - tooltip = "Some text"          Tooltip markup (optional).
  *
- * Known limitations:
- *   - Does not auto-reload on icon theme change (uses a file path, not icon name).
- *   - Does not respond to panel size changes after construction.
- *   - The destructor calls gtk_widget_destroy(img->mainw) even though mainw is
- *     a child of p->pwid and will be destroyed automatically when pwid is
- *     destroyed — this causes a double-destroy (see BUGS_AND_ISSUES.md).
+ * @note Known limitations: does not auto-reload on icon theme change (uses
+ *       a file path, not an icon name), and does not respond to panel size
+ *       changes after construction.
+ * @warning The destructor calls gtk_widget_destroy(img->mainw) even though
+ *          mainw is a child of p->pwid and will be destroyed automatically
+ *          when pwid is destroyed -- this causes a double-destroy (see
+ *          docs/BUGS_AND_ISSUES.md).
  */
 
 #include <stdlib.h>
@@ -53,17 +55,19 @@ typedef struct {
 } image_priv;
 
 
-/*
- * image_destructor -- clean up the image plugin.
+/**
+ * @brief Clean up the image plugin.
  *
  * Releases the GdkPixmap and GdkBitmap refs.
  *
- * BUG: gtk_widget_destroy(img->mainw) is called here, but mainw is already
- *      a child of p->pwid.  The panel destroys pwid (and thus mainw) AFTER
- *      this destructor returns.  Calling gtk_widget_destroy on mainw here
- *      causes it to be destroyed twice — the first destroy removes it from
- *      its parent, then when the panel destroys pwid, GTK may warn or crash.
- *      Fix: remove the gtk_widget_destroy(img->mainw) call.
+ * @param p Plugin instance being destroyed.
+ * @warning gtk_widget_destroy(img->mainw) is called here, but mainw is
+ *          already a child of p->pwid. The panel destroys pwid (and thus
+ *          mainw) AFTER this destructor returns. Calling
+ *          gtk_widget_destroy() on mainw here causes it to be destroyed
+ *          twice -- the first destroy removes it from its parent, then
+ *          when the panel destroys pwid, GTK may warn or crash. Fix:
+ *          remove the gtk_widget_destroy(img->mainw) call.
  */
 static void
 image_destructor(plugin_instance *p)
@@ -79,27 +83,25 @@ image_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * image_constructor -- initialise the image plugin.
+/**
+ * @brief Initialise the image plugin.
  *
- * Reads "image" (file path) and "tooltip" from config.
- * Loads the image file, scales it to fit the panel dimension, renders it
- * into a GdkPixmap+GdkBitmap pair, and creates a GtkImage from that pair.
- * If the file cannot be loaded, shows a "?" label as a fallback.
+ * Reads "image" (file path) and "tooltip" from config. Loads the image
+ * file, scales it to fit the panel dimension, renders it into a
+ * GdkPixmap+GdkBitmap pair, and creates a GtkImage from that pair. If the
+ * file cannot be loaded, shows a "?" label as a fallback.
  *
- * Parameters:
- *   p - the plugin_instance.
+ * Memory: fname is returned by expand_tilda() (caller must g_free() it);
+ * gp (original pixbuf) is unref'd after scaling; gps (scaled pixbuf) is
+ * unref'd after rendering to GdkPixmap; img->pix and img->mask are owned
+ * by image_priv until destructor.
  *
- * Returns: 1 (always; fallback label is shown if image fails to load).
- *
- * Memory:
- *   fname is returned by expand_tilda (caller must g_free).
- *   gp (original pixbuf) is unref'd after scaling.
- *   gps (scaled pixbuf) is unref'd after rendering to GdkPixmap.
- *   img->pix and img->mask are owned by image_priv until destructor.
- *   tooltip is returned by XCG as a non-owning str pointer — but then
- *   g_free(tooltip) is called, which is INCORRECT (do not free xc-owned strings).
- *   Fix: use XCG with strdup type to get an owned copy first.
+ * @param p The plugin_instance.
+ * @return 1 (always; a fallback label is shown if the image fails to load).
+ * @warning tooltip is returned by XCG as a non-owning str pointer, but
+ *          then g_free(tooltip) is called, which is incorrect (do not free
+ *          xc-owned strings). Fix: use XCG with the strdup type to get an
+ *          owned copy first.
  */
 static int
 image_constructor(plugin_instance *p)

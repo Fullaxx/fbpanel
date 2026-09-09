@@ -1,5 +1,7 @@
-/*
- * space.c -- fbpanel spacer plugin.
+/**
+ * @file
+ * @brief Spacer plugin: an invisible fixed-size or expanding gap used to
+ *        position other plugins within the panel.
  *
  * Provides an invisible fixed-size or expanding spacer between plugins.
  * This is used to push plugins to one side of the panel (e.g., put
@@ -14,8 +16,8 @@
  *     all remaining space in the box.
  *
  * Config keys:
- *   size = N   Spacer size in pixels (default: 1).
- *              Set to 0 with expand=true for a pure flexible spacer.
+ *   - size = N   Spacer size in pixels (default: 1). Set to 0 with
+ *                expand=true for a pure flexible spacer.
  *
  * No signals, no timers, no private data beyond base plugin_instance.
  */
@@ -48,11 +50,13 @@ typedef struct {
     GtkWidget *mainw;        /* unused; always NULL */
 } space_priv;
 
-/*
- * space_destructor -- clean up the space plugin.
+/**
+ * @brief Clean up the space plugin.
  *
- * Nothing to release: no timers, signals, or allocations.
- * pwid is destroyed by the panel after this returns.
+ * Nothing to release: no timers, signals, or allocations. pwid is
+ * destroyed by the panel after this returns.
+ *
+ * @param p Plugin instance being destroyed.
  */
 static void
 space_destructor(plugin_instance *p)
@@ -61,18 +65,16 @@ space_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * space_constructor -- initialise the space plugin.
+/**
+ * @brief Initialise the space plugin.
  *
  * Reads the "size" config key (default 1 pixel), then calls
- * gtk_widget_set_size_request() on p->pwid to set the minimum size.
- * The perpendicular dimension is set to 2px (minimal, not zero, to ensure
- * the widget participates in layout).
+ * gtk_widget_set_size_request() on p->pwid to set the minimum size. The
+ * perpendicular dimension is set to 2px (minimal, not zero, to ensure the
+ * widget participates in layout).
  *
- * Parameters:
- *   p - the plugin_instance (p->pwid already exists).
- *
- * Returns: 1 (always succeeds).
+ * @param p Plugin instance (p->pwid already exists).
+ * @return 1 (always succeeds).
  */
 static int
 space_constructor(plugin_instance *p)

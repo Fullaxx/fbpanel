@@ -1,19 +1,25 @@
-/*
- * timer.c -- fbpanel countdown timer plugin.
+/**
+ * @file
+ * @brief Countdown timer plugin: a click-to-start/reset timer shown as a
+ *        label that flashes "DONE" once the countdown reaches zero.
  *
- * A configurable countdown timer displayed as a label.  Three states:
- *   Idle    -- shows the configured duration ("5:00").
- *   Running -- ticks down every second ("4:59", "4:58", ...).
- *   Alarmed -- shows "DONE" and flashes until clicked.
+ * A configurable countdown timer displayed as a label. Three states:
+ *   - Idle    -- shows the configured duration ("5:00").
+ *   - Running -- ticks down every second ("4:59", "4:58", ...).
+ *   - Alarmed -- shows "DONE" and flashes until clicked.
  *
- * Left-click cycles: Idle -> Running -> Idle (reset).
- * When alarmed, any click resets to Idle.
+ * Left-click cycles: Idle -> Running -> Idle (reset). When alarmed, any
+ * click resets to Idle.
  *
  * No new library dependencies -- pure GLib/GTK2.
  *
  * Configuration (xconf keys):
- *   Duration -- countdown duration in seconds (default: 300 = 5 minutes).
- *   Label    -- prefix shown in idle state (default: none, just the time).
+ *   - Duration -- countdown duration in seconds (default: 300 = 5 minutes).
+ *
+ * @note The comment this block replaces also documented a "Label" config
+ *       key (a prefix shown in idle state), but timer_constructor() does
+ *       not actually read any such key via XCG -- only "Duration" is
+ *       consumed. Treat "Label" as unimplemented until it is wired up.
  */
 
 #include <stdio.h>
@@ -172,6 +178,16 @@ timer_clicked(GtkWidget *widget, GdkEventButton *event, timer_priv *priv)
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Initialise the countdown timer plugin.
+ *
+ * Reads the configured duration (clamped to [1, 86400] seconds), creates
+ * the display label, and connects a "button-press-event" handler on
+ * p->pwid (timer_clicked()) that starts or resets the countdown.
+ *
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 (always succeeds).
+ */
 static int
 timer_constructor(plugin_instance *p)
 {
@@ -202,6 +218,13 @@ timer_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Clean up the countdown timer plugin.
+ *
+ * Cancels the tick and flash timers if either is still running.
+ *
+ * @param p Plugin instance being destroyed.
+ */
 static void
 timer_destructor(plugin_instance *p)
 {

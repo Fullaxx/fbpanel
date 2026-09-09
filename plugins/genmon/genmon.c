@@ -10,6 +10,12 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
+ */
+
+/**
+ * @file
+ * @brief Generic Monitor plugin: periodically runs a shell command via
+ *        popen() and displays the first line of its output in the panel.
  *
  * genmon periodically runs an external shell command via popen(), reads the
  * first line of its output, and displays it in a Pango-markup GtkLabel
@@ -18,6 +24,9 @@
  * Timer: gm->timer is a g_timeout_add handle firing every gm->time seconds.
  * Memory: gm->command, gm->textsize, gm->textcolor point into xconf storage
  *         or literal strings -- do not free. gm->main is owned by GTK.
+ *
+ * @note Copyright 2007 Davide Truffa, licensed GPL-2.0-only (not this
+ *       project's default MIT). See docs/THIRD_PARTY_NOTICES.md.
  */
 
 #include <sys/types.h>
@@ -120,14 +129,13 @@ text_update(genmon_priv *gm)
     RET(TRUE); // returning TRUE keeps the periodic timer alive
 }
 
-/*
- * genmon_destructor -- clean up on plugin unload.
- *
- * Parameters:
- *   p -- plugin_instance pointer.
+/**
+ * @brief Clean up on plugin unload.
  *
  * Removes the periodic timer. The GtkLabel (gm->main) is destroyed
  * as part of the p->pwid widget tree by the framework.
+ *
+ * @param p Plugin instance being destroyed.
  */
 static void
 genmon_destructor(plugin_instance *p)
@@ -141,32 +149,29 @@ genmon_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * genmon_constructor -- initialise the generic monitor plugin.
- *
- * Parameters:
- *   p -- plugin_instance allocated by the framework.
- *
- * Returns: 1 on success.
+/**
+ * @brief Initialise the generic monitor plugin.
  *
  * Configuration keys (via XCG):
- *   Command       -- shell command to run (default "date +%R")
- *   TextSize      -- Pango size token (default "medium")
- *   TextColor     -- Pango colour string (default "darkblue")
- *   PollingTime   -- interval in seconds (default 1)
- *   MaxTextLength -- max chars in label (default 30)
+ *   - Command       -- shell command to run (default "date +%R")
+ *   - TextSize      -- Pango size token (default "medium")
+ *   - TextColor     -- Pango colour string (default "darkblue")
+ *   - PollingTime   -- interval in seconds (default 1)
+ *   - MaxTextLength -- max chars in label (default 30)
  *
  * Widget: gm->main is a GtkLabel added to p->pwid.
- * Timer: gm->timer = g_timeout_add(gm->time * 1000, text_update, gm).
- *        Must be cancelled in genmon_destructor.
+ * Timer: gm->timer = g_timeout_add(gm->time * 1000, text_update, gm). Must
+ * be cancelled in genmon_destructor.
  *
- * BUG: gm->time is stored as int (seconds) but multiplied by 1000 when passed
- *      to g_timeout_add. If gm->time > 2147 (seconds), the multiplication
- *      overflows a 32-bit int, creating a very short or near-zero interval.
- *
- * BUG: if gm->time == 0 (user sets PollingTime=0), g_timeout_add(0, ...) is
- *      called, which fires the callback on every GTK main loop iteration,
- *      effectively making popen() spin at 100% CPU.
+ * @param p Plugin instance allocated by the framework.
+ * @return 1 on success.
+ * @warning gm->time is stored as int (seconds) but multiplied by 1000 when
+ *          passed to g_timeout_add. If gm->time > 2147 (seconds), the
+ *          multiplication overflows a 32-bit int, creating a very short or
+ *          near-zero interval.
+ * @warning If gm->time == 0 (user sets PollingTime=0), g_timeout_add(0,
+ *          ...) is called, which fires the callback on every GTK main loop
+ *          iteration, effectively making popen() spin at 100% CPU.
  */
 static int
 genmon_constructor(plugin_instance *p)

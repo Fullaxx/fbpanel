@@ -1,20 +1,28 @@
-/*
- * plugins/meter/meter.c -- Implementation of the fbpanel "meter" plugin.
+/**
+ * @file
+ * @brief Reusable icon-based level-indicator "meter" helper plugin.
+ *
+ * This is a helper/library plugin, not an end-user-visible one: it is not
+ * meant to be placed directly in a panel config, but is loaded by other
+ * plugins (e.g. battery, volume) via class_get("meter") so they can drive
+ * a ready-made icon widget through the meter_class vtable.
  *
  * PURPOSE
  * -------
- * Provides a reusable icon-based level-indicator widget.  The plugin itself
- * does not display any useful data directly; instead, client plugins (such as
- * a battery or volume indicator) obtain a pointer to meter_class, call its
- * constructor to create the widget, register a set of icon names via
- * set_icons(), and periodically call set_level(0..100) to update the display.
+ * Provides a reusable icon-based level-indicator widget. The plugin itself
+ * does not display any useful data directly; instead, client plugins (such
+ * as a battery or volume indicator) obtain a pointer to meter_class, call
+ * its constructor to create the widget, register a set of icon names via
+ * set_icons(), and periodically call set_level(0..100) to update the
+ * display.
  *
  * ICON SELECTION
  * --------------
  * The level [0, 100] is linearly mapped to an index in the icon array:
  *   index = round(level / 100.0 * (num_icons - 1))
- * where round() uses roundf() from <math.h> (declared but not #included here;
- * the declaration is provided inline -- see BUG below).
+ * where round() uses roundf() from <math.h>, which this file does not
+ * pull in via `#include` -- the declaration below is a bare forward
+ * declaration instead.
  *
  * ICON THEME CHANGE HANDLING
  * --------------------------
@@ -22,12 +30,12 @@
  * update_view() function forces a reload of the current icon by resetting
  * cur_icon to -1 and calling meter_set_level() with the existing level.
  *
- * PUBLIC API (through meter_class vtable)
- * ----------------------------------------
- *   set_level(meter_priv *m, int level)  -- update displayed level [0..100]
- *   set_icons(meter_priv *m, gchar **icons) -- register icon array
+ * PUBLIC API (through the meter_class vtable, declared in meter.h)
+ * ------------------------------------------------------------------
+ *   - set_level(meter_priv *m, int level)     update displayed level [0..100]
+ *   - set_icons(meter_priv *m, gchar **icons) register icon array
  *
- * The standard plugin_class.constructor and plugin_class.destructor are also
+ * The standard plugin_class constructor and destructor fields are also
  * exported via the class vtable.
  */
 
@@ -204,26 +212,22 @@ update_view(meter_priv *m)
     RET();
 }
 
-/*
- * meter_constructor -- plugin_class.constructor for the meter plugin.
+/**
+ * @brief plugin_class constructor for the meter plugin.
  *
  * Creates a GtkImage widget, adds it to the plugin container, and connects
  * the icon-theme change signal.
  *
- * Parameters:
- *   p -- plugin_instance* allocated by the panel framework.
+ * Side effects: sets m->meter, m->cur_icon, m->size, m->itc_id; adds the
+ * GtkImage as a child of p->pwid; connects update_view() to the icon
+ * theme's "changed" signal.
  *
- * Returns:
- *   1 on success (non-zero as required by plugin_class.constructor contract).
+ * Memory: m->meter is owned by the GTK widget hierarchy; do not unref it
+ * directly. m->itc_id is used in meter_destructor() to disconnect the
+ * signal.
  *
- * Side effects:
- *   Sets m->meter, m->cur_icon, m->size, m->itc_id.
- *   Adds the GtkImage as a child of p->pwid.
- *   Connects update_view to icon_theme "changed".
- *
- * Memory notes:
- *   m->meter is owned by the GTK widget hierarchy; do not unref it directly.
- *   m->itc_id is used in meter_destructor() to disconnect the signal.
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 on success (non-zero, as required by the constructor contract).
  */
 static int
 meter_constructor(plugin_instance *p)
@@ -250,22 +254,19 @@ meter_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * meter_destructor -- plugin_class.destructor for the meter plugin.
+/**
+ * @brief plugin_class destructor for the meter plugin.
  *
- * Disconnects the icon-theme change signal.  The GtkImage widget is owned
- * by the parent container and will be destroyed when the container is torn
- * down by the panel framework; no explicit widget destruction is needed here.
+ * Disconnects the icon-theme change signal. The GtkImage widget is owned
+ * by the parent container and will be destroyed when the container is
+ * torn down by the panel framework; no explicit widget destruction is
+ * needed here.
  *
- * Parameters:
- *   p -- plugin_instance* being destroyed.
- *
- * Side effects:
- *   Disconnects icon_theme "changed" signal using stored m->itc_id.
- *
- * FIXME: m->icons is not freed here, which is correct only if the client
- *        plugin frees it separately.  There is no documented contract forcing
- *        clients to do so.  If the client forgets, the icon array leaks.
+ * @param p Plugin instance being destroyed.
+ * @warning m->icons is not freed here, which is correct only if the
+ *          client plugin frees it separately. There is no documented
+ *          contract forcing clients to do so -- if the client forgets,
+ *          the icon array leaks.
  */
 static void
 meter_destructor(plugin_instance *p)

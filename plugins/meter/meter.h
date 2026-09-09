@@ -114,12 +114,8 @@ typedef struct {
     /* Base vtable -- MUST be first field (fbpanel casting convention). */
     plugin_class plugin;
 
-    /*
-     * set_level -- set the meter's current level and refresh the icon.
-     *
-     * Parameters:
-     *   c   -- the meter_priv instance to update.
-     *   val -- integer level in the range [0, 100].
+    /**
+     * @brief Set the meter's current level and refresh the icon.
      *
      * Behaviour:
      *   - If val equals the current level, the call is a no-op.
@@ -127,25 +123,29 @@ typedef struct {
      *   - Loads the icon from the GTK icon theme at m->size pixels.
      *   - If the icon load fails, the GtkImage is set to NULL (blank).
      *
-     * Thread safety: must be called from the GLib main thread.
+     * @param c   The meter_priv instance to update.
+     * @param val Integer level in the range [0, 100].
+     * @note Must be called from the GLib main thread.
      */
     void (*set_level)(meter_priv *c, int val);
 
-    /*
-     * set_icons -- register the array of icon names for level steps.
-     *
-     * Parameters:
-     *   c     -- the meter_priv instance to configure.
-     *   icons -- NULL-terminated array of GTK icon-theme name strings.
-     *            The array and strings are NOT copied; the client retains
-     *            ownership and must keep them valid until set_icons is called
-     *            again or the meter is destroyed.
+    /**
+     * @brief Register the array of icon names for level steps.
      *
      * Behaviour:
      *   - Records the pointer and counts the elements.
      *   - Resets cur_icon to -1 and level to -1 to force a full redraw on
      *     the next set_level() call.
      *   - If icons == m->icons (same pointer), the call is a no-op.
+     *
+     * @param c     The meter_priv instance to configure.
+     * @param icons NULL-terminated array of GTK icon-theme name strings.
+     *              The array and strings are NOT copied; the client
+     *              retains ownership and must keep them valid until
+     *              set_icons is called again or the meter is destroyed.
+     * @warning The `icons` array is not owned by meter_priv. If the client
+     *          frees it while this meter is still active, a subsequent
+     *          set_level() call will read the freed array (use-after-free).
      */
     void (*set_icons)(meter_priv *c, gchar **icons);
 } meter_class;

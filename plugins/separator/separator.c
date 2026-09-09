@@ -1,5 +1,7 @@
-/*
- * separator.c -- fbpanel separator plugin.
+/**
+ * @file
+ * @brief Separator plugin: draws a single GTK separator line to visually
+ *        divide plugin groups in the panel.
  *
  * Draws a single GTK separator widget (GtkHSeparator or GtkVSeparator,
  * depending on panel orientation) to visually divide plugin groups.
@@ -24,19 +26,17 @@
 #include "dbg.h"
 
 
-/*
- * separator_constructor -- initialise the separator plugin instance.
- *
- * Parameters:
- *   p - the plugin_instance (p->pwid already created by panel).
+/**
+ * @brief Initialise the separator plugin instance.
  *
  * Creates one GtkHSeparator or GtkVSeparator (via panel->my_separator_new),
  * adds it to p->pwid, and makes the widget visible.
  *
- * Returns: 1 (always succeeds; a separator can always be created).
+ * Memory: sep is added to p->pwid; ownership transfers to pwid. When pwid
+ * is destroyed, sep is destroyed automatically.
  *
- * Memory: sep is added to p->pwid; ownership transfers to pwid.
- *         When pwid is destroyed, sep is destroyed automatically.
+ * @param p Plugin instance (p->pwid already created by the panel).
+ * @return 1 (always succeeds; a separator can always be created).
  */
 static int
 separator_constructor(plugin_instance *p)
@@ -50,14 +50,14 @@ separator_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * separator_destructor -- clean up the separator plugin instance.
+/**
+ * @brief Clean up the separator plugin instance.
  *
- * Parameters:
- *   p - the plugin_instance being destroyed.
+ * Nothing to clean up: no timers, no signal connections, no allocated
+ * memory. The sep widget is destroyed automatically when pwid is
+ * destroyed by the panel.
  *
- * Nothing to clean up: no timers, no signal connections, no allocated memory.
- * The sep widget is destroyed automatically when pwid is destroyed by the panel.
+ * @param p Plugin instance being destroyed.
  */
 static void
 separator_destructor(plugin_instance *p)

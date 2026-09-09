@@ -1,30 +1,38 @@
-/*
- * user.c -- fbpanel user plugin.
+/**
+ * @file
+ * @brief User plugin: shows a user avatar with a popup menu of user
+ *        actions, optionally fetched from Gravatar.
  *
  * Displays a user avatar image with a popup menu of user actions.
- * Delegates most UI work to the "menu" plugin (used as a helper via class_get).
- * Optionally fetches a Gravatar image for the user from gravatar.com.
+ * Delegates most UI work to the "menu" plugin (used as a helper via
+ * class_get()). Optionally fetches a Gravatar image for the user from
+ * gravatar.com.
  *
  * Functionality:
  *   1. Reads icon/image config to find the user avatar.
  *   2. Loads the "menu" plugin class and runs its constructor to build
- *      the icon+popup-menu widget in p->pwid.
+ *      the icon and popup-menu widget in p->pwid.
  *   3. If "gravataremail" is configured, spawns wget to download the
  *      Gravatar avatar, then rebuilds the menu widget with the new image.
  *
  * Config keys:
- *   image         = /path/to/image.png   User avatar file path (optional).
- *   icon          = avatar-default       Icon theme name (optional; default if no image).
- *   gravataremail = user@example.com     Email for Gravatar fetch (optional).
- *   (all other menu plugin config keys are also supported, as menu is delegated to)
+ *   - image         = /path/to/image.png   User avatar file path
+ *                                           (optional).
+ *   - icon          = avatar-default       Icon theme name (optional;
+ *                                           default if no image).
+ *   - gravataremail = user@example.com     Email for Gravatar fetch
+ *                                           (optional).
+ *   - (all other menu plugin config keys are also supported, as menu is
+ *     delegated to)
  *
  * Dependencies:
  *   - Requires the "menu" plugin to be available (class_get("menu")).
  *   - If "gravataremail" is set, requires "wget" to be on PATH.
  *
- * Security note (from original code): the Gravatar download path is hardcoded
- * to /tmp/gravatar — a shared, world-writable location.  This is unsafe on
- * multi-user systems (symlink attack, file replacement).
+ * @warning Security note (from original code): the Gravatar download path
+ *          is hardcoded to /tmp/gravatar -- a shared, world-writable
+ *          location. This is unsafe on multi-user systems (symlink
+ *          attack, file replacement).
  */
 
 #include "misc.h"
@@ -171,26 +179,25 @@ fetch_gravatar(gpointer data)
 }
 
 
-/*
- * user_constructor -- initialise the user plugin.
+/**
+ * @brief Initialise the user plugin.
  *
  * Loads the "menu" helper plugin class, sets a default avatar icon if no
  * image or icon is configured, runs the menu constructor to build the
- * pwid content, then schedules a Gravatar fetch if an email is configured.
+ * pwid content, then schedules a Gravatar fetch if an email is
+ * configured.
  *
- * Parameters:
- *   p - the plugin_instance.
+ * Memory: k (menu_class*) is a static pointer shared across all user
+ * instances, so only one user plugin per process can be active at a time
+ * reliably (k is overwritten on each constructor call). class_put("menu")
+ * is called in user_destructor.
  *
- * Returns: 1 on success, 0 if the "menu" class is unavailable.
- *
- * Memory: k (menu_class*) is a static pointer shared across all user instances.
- *         This means only one user plugin per process can be active at a time
- *         reliably (k is overwritten on each constructor call).
- *         class_put("menu") is called in user_destructor.
- *
- * BUG: the g_timeout_add(300, fetch_gravatar, p) return value is not saved.
- *      If the plugin is destroyed before 300ms elapses, fetch_gravatar will
- *      fire with a dangling p pointer → use-after-free crash.
+ * @param p The plugin_instance.
+ * @return 1 on success, 0 if the "menu" class is unavailable.
+ * @warning The g_timeout_add(300, fetch_gravatar, p) return value is not
+ *          saved. If the plugin is destroyed before 300ms elapses,
+ *          fetch_gravatar() will fire with a dangling p pointer -- a
+ *          use-after-free crash.
  */
 static int
 user_constructor(plugin_instance *p)
@@ -227,8 +234,8 @@ user_constructor(plugin_instance *p)
 }
 
 
-/*
- * user_destructor -- clean up the user plugin.
+/**
+ * @brief Clean up the user plugin.
  *
  * Order of operations:
  *   1. Call the "menu" helper's destructor to clean up the menu widget.
@@ -236,12 +243,10 @@ user_constructor(plugin_instance *p)
  *   3. Remove the child-watch source if still active.
  *   4. Release the "menu" class reference.
  *
- * Parameters:
- *   p - the plugin_instance being destroyed.
- *
- * Note: After class_put("menu"), k (static pointer) may become invalid
- * if this was the last user plugin instance. This is safe here because
- * the destructor is the last thing that uses k.
+ * @param p Plugin instance being destroyed.
+ * @note After class_put("menu"), k (the static menu_class pointer) may
+ *       become invalid if this was the last user plugin instance. This is
+ *       safe here because the destructor is the last thing that uses k.
  */
 static void
 user_destructor(plugin_instance *p)

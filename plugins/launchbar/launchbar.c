@@ -1,32 +1,31 @@
-/*
- * launchbar.c -- fbpanel application launcher bar plugin.
+/**
+ * @file
+ * @brief Application launcher bar plugin: a row of icon buttons that each
+ *        run a shell command when clicked, with drag-and-drop support.
  *
  * Displays a row of icon buttons, each launching a command when clicked.
  * Supports drag-and-drop: dropping a URI or a Mozilla-style URL onto a
  * button appends the path/URL to that button's action command and runs it.
  *
  * Configuration (in the "button" xconf sub-blocks):
- *   image   - path to a pixmap file (expanded with expand_tilda).
- *   icon    - named icon (from icon theme).
- *   action  - shell command to execute on click (expanded with expand_tilda).
- *   tooltip - tooltip markup for the button.
+ *   - image   - path to a pixmap file (expanded with expand_tilda).
+ *   - icon    - named icon (from icon theme).
+ *   - action  - shell command to execute on click (expanded with
+ *     expand_tilda).
+ *   - tooltip - tooltip markup for the button.
  *
- * Layout:
- *   pwid → GtkAlignment → GtkBar → N × fb_button
+ * Layout: pwid -> GtkAlignment -> GtkBar -> N x fb_button. GtkBar is the
+ * custom multi-row bar widget; launchbar_size_alloc recalculates the
+ * number of rows/columns (dimension) when the widget is resized.
  *
- *   GtkBar is the custom multi-row bar widget; launchbar_size_alloc
- *   recalculates the number of rows/columns (dimension) when the widget
- *   is resized.
+ * Drag-and-drop: accepts text/uri-list (whitespace-separated URIs) and
+ * text/x-moz-url (UTF-16 encoded "URL\nTitle"). Each received URI is
+ * appended to the button's action string before spawning the command.
  *
- * Drag-and-drop:
- *   Accepts text/uri-list (whitespace-separated URIs) and text/x-moz-url
- *   (UTF-16 encoded "URL\nTitle").  Each received URI is appended to the
- *   button's action string before spawning the command.
- *
- * Fixed bugs:
- *   Fixed (BUG-003): Removed explicit gtk_widget_destroy(lb->box) from
- *     launchbar_destructor.  The panel framework destroys p->pwid (and thus
- *     lb->box) automatically after the destructor returns.
+ * @note Fixed (BUG-003): an explicit gtk_widget_destroy(lb->box) call was
+ *       removed from launchbar_destructor. The panel framework destroys
+ *       p->pwid (and thus lb->box) automatically after the destructor
+ *       returns.
  */
 
 #include <stdio.h>
@@ -159,17 +158,15 @@ my_button_pressed(GtkWidget *widget, GdkEventButton *event, btn *b )
     RET(TRUE);
 }
 
-/*
- * launchbar_destructor -- free all launchbar resources.
+/**
+ * @brief Free all launchbar resources.
  *
  * Frees each button's action string.
  *
- * Parameters:
- *   p - plugin_instance.
- *
- * Note: lb->box is a child of p->pwid; the framework destroys p->pwid
- *   (and all its children) after this destructor returns, so no explicit
- *   gtk_widget_destroy(lb->box) is needed here.
+ * @param p Plugin instance being destroyed.
+ * @note lb->box is a child of p->pwid; the framework destroys p->pwid
+ *       (and all its children) after this destructor returns, so no
+ *       explicit gtk_widget_destroy(lb->box) is needed here.
  */
 static void
 launchbar_destructor(plugin_instance *p)
@@ -375,20 +372,16 @@ launchbar_size_alloc(GtkWidget *widget, GtkAllocation *a,
     RET();
 }
 
-/*
- * launchbar_constructor -- initialise the launchbar plugin.
+/**
+ * @brief Initialise the launchbar plugin.
  *
- * Builds the widget hierarchy:
- *   p->pwid → GtkAlignment → GtkBar (lb->box) → N × fb_button
- *
- * The custom GTK RC string removes button borders/padding for a clean look.
- * Icon size defaults to panel->max_elem_height.
+ * Builds the widget hierarchy: p->pwid -> GtkAlignment -> GtkBar (lb->box)
+ * -> N x fb_button. The custom GTK RC string removes button borders and
+ * padding for a clean look. Icon size defaults to panel->max_elem_height.
  * Iterates over all "button" sub-blocks in p->xc and calls read_button().
  *
- * Parameters:
- *   p - plugin_instance allocated by panel framework.
- *
- * Returns: 1 (always succeeds; missing buttons are silently skipped).
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 (always succeeds; missing buttons are silently skipped).
  */
 static int
 launchbar_constructor(plugin_instance *p)
