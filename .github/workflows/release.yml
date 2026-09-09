@@ -44,6 +44,18 @@ jobs:
             pkg_gen: DEB
             pkg_ext: deb
             libdir: lib
+          - distro: fedora46
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
+          - distro: fedora45
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
+          - distro: fedora44
+            pkg_gen: RPM
+            pkg_ext: rpm
+            libdir: lib64
           - distro: fedora43
             pkg_gen: RPM
             pkg_ext: rpm

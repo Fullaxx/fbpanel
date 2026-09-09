@@ -1,3 +1,12 @@
+## Version: 8.5.2 — 2026-09-09
+* Add Fedora 44, 45, and 46 to the build and release CI matrices, matching
+  the new builder images published by fbpanel_builder
+  - `focal` and `bullseye` are known-obsolete upstream in fbpanel_builder
+    (both retired from its own CI/README, citing expired upstream apt
+    archives) but are left in fbpanel's own matrices for now since their
+    already-published builder images still build fbpanel successfully;
+    revisit if/when they start failing
+
 ## Version: 8.5.1 — 2026-09-09
 * Add a full Doxygen documentation system:
   - New `Doxyfile` and an opt-in `make doc` / `cmake --build build --target
