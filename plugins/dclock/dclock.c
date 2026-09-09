@@ -1,16 +1,23 @@
-/* dclock is an adaptation of blueclock by Jochen Baier <email@Jochen-Baier.de>
+/**
+ * @file
+ * @brief Digital clock plugin for fbpanel (bitmap glyph rendering).
  *
- * This plugin renders a digital clock using a custom bitmap glyph image
- * (dclock_glyphs.png) rather than GTK text rendering. It supports both
- * horizontal (row of digits) and vertical (stacked digit-pair) layouts,
- * 12/24h time formats, optional seconds display, configurable color,
- * a click action (or toggle-calendar fallback), and a date tooltip.
+ * An adaptation of blueclock by Jochen Baier <email@Jochen-Baier.de>.
+ * Renders a digital clock by blitting digit/colon glyphs cut from a
+ * bitmap sprite sheet (dclock_glyphs.png) into a GdkPixbuf shown in a
+ * GtkImage, rather than using GTK text rendering. Supports horizontal
+ * (row of digits) and vertical (stacked digit-pair) layouts, 12/24h time
+ * formats, optional seconds display, a configurable glyph colour, a
+ * click action (or toggle-calendar fallback if none is configured), and
+ * a date tooltip. A 1-second g_timeout_add drives clock_update().
  *
- * Timer: a 1-second g_timeout_add fires clock_update() continuously.
- * Memory: dc->clock (GdkPixbuf) is allocated in dclock_create_pixbufs and
- *         must NOT be explicitly freed here because GTK holds a reference
- *         through the GtkImage widget; dc->glyphs must be freed manually
- *         but the destructor does not do so -- see BUG below.
+ * @note See tclock.c for the alternative, GtkLabel/Pango-based text
+ *       clock plugin.
+ * @warning dc->glyphs is heap-owned by this plugin but is never freed in
+ *          dclock_destructor() -- see the @warning there. dc->clock (the
+ *          rendered GdkPixbuf) is allocated in dclock_create_pixbufs()
+ *          and must NOT be freed independently, since GTK holds a
+ *          reference to it through the GtkImage widget.
  */
 
 #include <time.h>
@@ -426,18 +433,18 @@ done:
     RET();
 }
 
-/*
- * dclock_destructor -- release resources when the plugin is unloaded.
+/**
+ * @brief Release resources when the plugin is unloaded.
  *
- * Parameters:
- *   p -- plugin_instance pointer (upcast to dclock_priv internally).
+ * Removes the 1-second timer via g_source_remove(), then destroys the
+ * main GtkImage widget (which drops its reference to the clock pixbuf).
  *
- * Cleanup:
- *   - Removes the 1-second timer via g_source_remove.
- *   - Destroys the main GtkImage widget (which drops the clock pixbuf ref).
- *
- * BUG: dc->glyphs is never g_object_unref'd here -- memory leak.
- * BUG: dc->calendar_window is not destroyed here if it was left open.
+ * @param p Plugin instance pointer (upcast to dclock_priv internally).
+ * @warning dc->glyphs is never released here (no g_object_unref) --
+ *          this leaks the glyph sprite sheet pixbuf on every plugin
+ *          unload.
+ * @warning dc->calendar_window is not destroyed here if it was left
+ *          open when the plugin unloads.
  */
 static void
 dclock_destructor(plugin_instance *p)
@@ -454,27 +461,31 @@ dclock_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * dclock_constructor -- initialise and display the digital clock plugin.
+/**
+ * @brief Initialise and display the digital clock plugin.
  *
- * Parameters:
- *   p -- plugin_instance allocated by the framework (sizeof dclock_priv bytes).
+ * Loads the glyph sprite sheet, computes the layout (horizontal or
+ * vertical, with or without a seconds pair) and allocates the
+ * destination pixbuf, applies the configured glyph colour, builds the
+ * GtkImage, connects the click handler, and starts the 1-second refresh
+ * timer.
  *
- * Returns: 1 on success, 0 on failure (e.g. glyph PNG not found).
+ * @par Configuration (xconf keys)
+ *   - `TooltipFmt`  -- strftime format for the tooltip (default
+ *     TOOLTIP_FMT).
+ *   - `ClockFmt`    -- deprecated; if set, an error is logged and the
+ *     key is removed from the config.
+ *   - `ShowSeconds` -- bool: show the :SS seconds pair (default false).
+ *   - `HoursView`   -- "12" or "24" (default "24").
+ *   - `Action`      -- shell command to run on click (default: none).
+ *   - `Color`       -- CSS-style colour string (default: opaque black).
  *
- * Configuration keys (read via XCG macro from xconf):
- *   TooltipFmt  -- strftime format for tooltip (default TOOLTIP_FMT)
- *   ClockFmt    -- DEPRECATED: generates an error and is removed from config
- *   ShowSeconds -- bool: show :SS seconds pair (default false)
- *   HoursView   -- "12" | "24" (default "24")
- *   Action      -- shell command to run on click (default: none)
- *   Color       -- CSS-style colour string (default: opaque black)
- *
- * Signals connected:
- *   "button_press_event" on p->pwid -> clicked()
- *
- * Timer: dc->timer is a 1-second recurring g_timeout_add handle.
- *        Must be removed in dclock_destructor.
+ * @param p Plugin instance allocated by the framework (sizeof(dclock_priv)
+ *          bytes).
+ * @return 1 on success, 0 on failure (e.g. dclock_glyphs.png not found).
+ * @note Connects "button_press_event" on p->pwid to clicked().
+ * @note Starts a 1-second recurring g_timeout_add timer (dc->timer),
+ *       which must be removed in dclock_destructor().
  */
 static int
 dclock_constructor(plugin_instance *p)

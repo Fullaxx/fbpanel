@@ -1,27 +1,23 @@
-/*
- * mem.c -- fbpanel memory usage plugin (progress-bar style).
+/**
+ * @file
+ * @brief fbpanel memory usage plugin (progress-bar style).
  *
  * Displays RAM (and optionally swap) usage as vertical (horizontal panel)
- * or horizontal (vertical panel) GtkProgressBar widgets.
+ * or horizontal (vertical panel) GtkProgressBar widgets. On Linux, reads
+ * /proc/meminfo every 3000 ms using the X-macro expansion of mt.h to
+ * generate both the MT_* enum constants and the mt[] array in one step.
+ * "Used" RAM = MemTotal - (MemFree + Buffers + Cached + Slab).
  *
- * On Linux, reads /proc/meminfo every 3000 ms using the X-macro expansion
- * of mt.h to generate both the MT_* enum constants and the mt[] array in
- * one step.  "Used" RAM = MemTotal - (MemFree + Buffers + Cached + Slab).
+ * @par Configuration (xconf keys)
+ *   - `ShowSwap` -- boolean; if "true", a second progress bar for swap
+ *     usage is shown.
  *
- * Configuration (xconf keys):
- *   ShowSwap — boolean; if "true", a second progress bar for swap is shown.
+ * @par Widget hierarchy
+ *   p->pwid -> mem->box (panel's my_box_new) -> mem_pb [+ swap_pb]
  *
- * Widget hierarchy:
- *   p->pwid → mem->box (panel's my_box_new) → mem_pb [+ swap_pb]
- *
- * Fixed bugs:
- *   Fixed (BUG-004): Removed explicit gtk_widget_destroy(mem->box) from
- *     mem_destructor.  The panel framework destroys p->pwid (and thus
- *     mem->box) automatically.
- *
- * Note: mem_usage() shares its name with a similarly-named function in
- *   mem2.c, but both are compiled into separate shared libraries so there
- *   is no link-time conflict in practice.
+ * @note mem_usage() shares its name with a similarly-named function in
+ *       mem2.c, but the two are compiled into separate shared libraries,
+ *       so there is no link-time conflict in practice.
  */
 
 #include <time.h>
@@ -235,11 +231,18 @@ mem_update(mem_priv *mem)
 }
 
 
-/*
- * mem_destructor -- clean up mem plugin resources.
+/**
+ * @brief Clean up mem plugin resources.
  *
- * Removes the polling timer.  mem->box is a child of p->pwid and will
- * be destroyed by the framework; no explicit gtk_widget_destroy needed.
+ * Removes the polling timer. mem->box is a child of p->pwid and will
+ * be destroyed by the framework; no explicit gtk_widget_destroy() call
+ * is needed here.
+ *
+ * @param p Plugin instance being torn down (cast internally to mem_priv*).
+ * @note Fixed (BUG-004): this function used to call
+ *       gtk_widget_destroy(mem->box) explicitly. That call was removed
+ *       because the panel framework already destroys p->pwid (and thus
+ *       mem->box, its child) automatically.
  */
 static void
 mem_destructor(plugin_instance *p)
@@ -252,20 +255,18 @@ mem_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * mem_constructor -- initialise the memory plugin.
+/**
+ * @brief Initialise the memory plugin.
  *
- * Reads ShowSwap config, creates the container box and progress bar(s),
- * starts the 3000 ms refresh timer.
+ * Reads the ShowSwap config key, creates the container box and progress
+ * bar(s), and starts the 3000 ms refresh timer.
  *
- * Orientation:
- *   Horizontal panel: bars grow bottom-to-top, fixed width 9px.
- *   Vertical panel:   bars grow left-to-right, fixed height 9px.
+ * @par Orientation
+ *   - Horizontal panel: bars grow bottom-to-top, fixed width 9px.
+ *   - Vertical panel:   bars grow left-to-right, fixed height 9px.
  *
- * Parameters:
- *   p - plugin_instance allocated by the panel framework.
- *
- * Returns: 1 (always succeeds).
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1. This constructor always succeeds.
  */
 static int
 mem_constructor(plugin_instance *p)

@@ -1,32 +1,32 @@
-/*
- * thermal.c -- fbpanel CPU/board temperature plugin.
+/**
+ * @file
+ * @brief fbpanel CPU/board temperature plugin.
  *
  * Reads a thermal zone temperature from the kernel's thermal sysfs
- * interface and displays it as a text label (e.g. "45°C").
+ * interface (/sys/class/thermal/thermal_zone<N>/temp, in millidegrees
+ * Celsius, divided by 1000 to get degrees C) and displays it as a text
+ * label (e.g. "45°C"), colouring the label orange or red once the
+ * configured WarnTemp/CritTemp thresholds are crossed.
  *
- * Soft-disable behaviour:
+ * @par Soft-disable behaviour
  *   If the requested thermal zone does not exist (e.g. running inside a
  *   container, on hardware without thermal sensors, or when the relevant
  *   kernel module is not loaded), the constructor emits g_message() and
- *   returns 0.  The panel skips the plugin and continues loading.
+ *   returns 0. The panel skips the plugin and continues loading.
  *
- * Configuration (xconf keys):
- *   ThermalZone -- integer zone index N (default: 0).
- *                  Reads /sys/class/thermal/thermal_zone<N>/temp.
- *   WarnTemp    -- temperature in °C at which the label turns orange
- *                  (default: 70).
- *   CritTemp    -- temperature in °C at which the label turns red
- *                  (default: 90).
- *   Period      -- update interval in milliseconds (default: 5000).
+ * @par Configuration (xconf keys)
+ *   - `ThermalZone` -- integer zone index N (default: 0); reads
+ *     /sys/class/thermal/thermal_zone<N>/temp.
+ *   - `WarnTemp` -- temperature in °C at which the label turns orange
+ *     (default: 70).
+ *   - `CritTemp` -- temperature in °C at which the label turns red
+ *     (default: 90).
+ *   - `Period` -- update interval in milliseconds (default: 5000).
  *
- * Data source:
- *   /sys/class/thermal/thermal_zone<N>/temp
- *   Value is in millidegrees Celsius.  Divided by 1000 to get °C.
- *
- * Colour coding:
- *   < WarnTemp  -- no markup (default theme foreground)
- *   >= WarnTemp -- orange
- *   >= CritTemp -- red
+ * @par Colour coding
+ *   - < WarnTemp  -- no markup (default theme foreground).
+ *   - >= WarnTemp -- orange.
+ *   - >= CritTemp -- red.
  */
 
 #include <stdio.h>
@@ -118,13 +118,15 @@ thermal_update(thermal_priv *priv)
     RET(TRUE);
 }
 
-/*
- * thermal_constructor -- initialise the thermal plugin.
+/**
+ * @brief Initialise the thermal plugin.
  *
- * Reads config, builds the sysfs path, and probes it.  Returns 0
- * (soft-disable) if the path does not exist.
+ * Reads configuration, builds the sysfs path for the configured thermal
+ * zone, and probes it. Soft-disables (returns 0) if the path does not
+ * exist.
  *
- * Returns: 1 on success, 0 on soft-disable.
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 on success, 0 on soft-disable (thermal zone not available).
  */
 static int
 thermal_constructor(plugin_instance *p)
@@ -172,13 +174,13 @@ thermal_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * thermal_destructor -- clean up thermal plugin resources.
+/**
+ * @brief Clean up thermal plugin resources.
  *
- * Cancels the timer and frees the heap-allocated sysfs path.
+ * Cancels the polling timer and frees the heap-allocated sysfs path
+ * (priv->path).
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p Plugin instance pointer.
  */
 static void
 thermal_destructor(plugin_instance *p)

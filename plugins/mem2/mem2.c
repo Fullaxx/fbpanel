@@ -1,32 +1,27 @@
-/*
- * mem2.c -- fbpanel memory usage plugin (chart style).
+/**
+ * @file
+ * @brief fbpanel memory usage plugin (scrolling chart style).
  *
- * Licence: GPLv2
+ * Like mem.c, but renders memory usage history as a scrolling bar chart
+ * via the shared chart plugin helper instead of a plain progress bar.
+ * Supports two chart rows: row 0 is RAM usage (default colour red), and
+ * row 1 is swap usage (optional; enabled by setting SwapColor). Every
+ * CHECK_PERIOD (2) seconds, mem_usage() reads /proc/meminfo, computes
+ * fractional usage in [0..1] for each row, calls chart->add_tick(), and
+ * updates the tooltip.
  *
- * bercik-rrp@users.sf.net
+ * @par Licence
+ *   GPLv2. Contact: bercik-rrp@users.sf.net
  *
- * Like mem.c but renders usage history as a scrolling bar chart via the
- * shared chart plugin helper.  Supports two chart rows:
- *   Row 0 — RAM usage   (default colour: red).
- *   Row 1 — Swap usage  (optional; enabled by setting SwapColor).
+ * @par Struct layout (C-style inheritance)
+ *   mem2_priv embeds chart_priv as its FIRST member so it can be safely
+ *   cast to chart_priv*, and (since chart_priv itself embeds
+ *   plugin_instance first) to plugin_instance*.
  *
- * Struct layout (C-style inheritance):
- *   mem2_priv embeds chart_priv as FIRST member so it can be safely cast
- *   to chart_priv* and plugin_instance*.
- *
- * Configuration (xconf keys):
- *   MemColor  — colour string for RAM row (default "red").
- *   SwapColor — colour string for swap row; if absent, swap is not shown.
- *
- * Timer:
- *   mem_usage() is called every CHECK_PERIOD (2) seconds via g_timeout_add().
- *   It reads /proc/meminfo, computes fractional usage [0..1] for each row,
- *   calls chart->add_tick(), and updates the tooltip.
- *
- * Fixed bugs:
- *   Fixed (BUG-005): Non-Linux stub for mem_usage() now has the correct
- *     signature "static gboolean mem_usage(mem2_priv *c)" to match the
- *     Linux version and the GSourceFunc callback contract.
+ * @par Configuration (xconf keys)
+ *   - `MemColor`  -- colour string for the RAM row (default "red").
+ *   - `SwapColor` -- colour string for the swap row; if absent, swap is
+ *     not shown.
  */
 
 #include "../chart/chart.h"
@@ -186,17 +181,17 @@ mem_usage(mem2_priv *c)
 }
 #endif
 
-/*
- * mem2_constructor -- initialise the mem2 plugin.
+/**
+ * @brief Initialise the mem2 plugin.
  *
- * Acquires the chart class, delegates widget construction to chart_constructor,
- * reads colour config, then configures 1 or 2 chart rows depending on
- * whether SwapColor was specified in the config.
+ * Acquires the "chart" plugin class and delegates widget construction to
+ * its constructor, reads MemColor/SwapColor from xconf, then configures
+ * one chart row (RAM only) or two (RAM + swap) depending on whether
+ * SwapColor was specified in the config.
  *
- * Parameters:
- *   p - plugin_instance allocated by the panel framework.
- *
- * Returns: 1 on success, 0 if chart class unavailable.
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 on success, 0 if the "chart" plugin class is unavailable or
+ *         its constructor fails.
  */
 static int
 mem2_constructor(plugin_instance *p)
@@ -232,11 +227,15 @@ mem2_constructor(plugin_instance *p)
 }
 
 
-/*
- * mem2_destructor -- clean up mem2 plugin resources.
+/**
+ * @brief Clean up mem2 plugin resources.
  *
- * Removes the polling timer, calls the chart destructor to free tick
- * buffers and GdkGCs, then releases the chart class reference.
+ * Removes the polling timer, calls the chart plugin's destructor to free
+ * its tick buffers and GdkGCs, then releases the "chart" class
+ * reference.
+ *
+ * @param p Plugin instance being torn down (cast internally to
+ *          mem2_priv*).
  */
 static void
 mem2_destructor(plugin_instance *p)

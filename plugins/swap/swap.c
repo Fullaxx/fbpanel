@@ -1,27 +1,26 @@
-/*
- * swap.c -- fbpanel swap usage plugin.
+/**
+ * @file
+ * @brief fbpanel swap usage plugin.
  *
- * Displays swap space utilisation as a GtkProgressBar, styled to match the
- * existing mem plugin.  Data is read from /proc/meminfo every 3 seconds.
+ * Displays swap space utilisation as a GtkProgressBar, styled to match
+ * the existing mem plugin. Data is read from /proc/meminfo every
+ * `Period` milliseconds (default 3000): swap_used = SwapTotal - SwapFree,
+ * both taken from the SwapTotal/SwapFree fields (in kB).
  *
- * Soft-disable behaviour:
+ * @par Soft-disable behaviour
  *   If /proc/meminfo cannot be opened at startup the constructor emits
- *   g_message() and returns 0.  If the system has no swap (SwapTotal == 0)
- *   and HideIfNoSwap is true (the default), the constructor also returns 0
- *   so the plugin does not appear on the panel.
+ *   g_message() and returns 0. If the system has no swap (SwapTotal == 0)
+ *   and HideIfNoSwap is true (the default), the constructor also returns
+ *   0 so the plugin does not appear on the panel.
  *
- * Configuration (xconf keys):
- *   HideIfNoSwap — boolean; disable plugin when no swap is configured
- *                  (default: true).
- *   Period       — update interval in milliseconds (default: 3000).
+ * @par Configuration (xconf keys)
+ *   - `HideIfNoSwap` -- boolean; disable the plugin when no swap is
+ *     configured (default: true).
+ *   - `Period` -- update interval in milliseconds (default: 3000).
  *
- * Data source:
- *   /proc/meminfo — SwapTotal and SwapFree fields (values in kB).
- *   swap_used = SwapTotal - SwapFree.
- *
- * Widget hierarchy:
- *   p->pwid (GtkBgbox, managed by framework)
- *     priv->pb (GtkProgressBar, oriented per panel orientation)
+ * @par Widget hierarchy
+ *   p->pwid (GtkBgbox, managed by framework) -> priv->pb (GtkProgressBar,
+ *   oriented per panel orientation)
  */
 
 #include <stdio.h>
@@ -141,13 +140,15 @@ swap_update(swap_priv *priv)
     RET(TRUE);
 }
 
-/*
- * swap_constructor -- initialise the swap plugin.
+/**
+ * @brief Initialise the swap plugin.
  *
- * Probes /proc/meminfo; soft-disables if unreadable or if HideIfNoSwap is
- * set and no swap is configured.  Creates the GtkProgressBar and timer.
+ * Probes /proc/meminfo; soft-disables if it is unreadable, or if
+ * HideIfNoSwap is set and no swap is configured. Otherwise creates the
+ * GtkProgressBar and starts the polling timer.
  *
- * Returns: 1 on success, 0 on soft-disable.
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 on success, 0 on soft-disable (see above).
  */
 static int
 swap_constructor(plugin_instance *p)
@@ -202,13 +203,12 @@ swap_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * swap_destructor -- clean up swap plugin resources.
+/**
+ * @brief Clean up swap plugin resources.
  *
- * Cancels the polling timer.  GTK widgets are destroyed by the framework.
+ * Cancels the polling timer. GTK widgets are destroyed by the framework.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p Plugin instance pointer.
  */
 static void
 swap_destructor(plugin_instance *p)

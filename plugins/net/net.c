@@ -1,39 +1,32 @@
-/*
- * plugins/net/net.c -- Network traffic monitor plugin for fbpanel.
+/**
+ * @file
+ * @brief Network traffic monitor plugin for fbpanel.
  *
- * A little bug fixed by Mykola <mykola@2ka.mipt.ru>:)
- * FreeBSD support is added by Eygene Ryabinkin <rea-fbsd@codelabs.ru>
- *
- * PURPOSE
- * -------
  * Displays a scrolling chart of network transmit (TX) and receive (RX)
- * traffic in KiB/s for a single network interface.  The chart is rendered
+ * traffic in KiB/s for a single network interface. The chart is rendered
  * by the "chart" plugin (plugins/chart/), which this plugin uses as a
- * subordinate/base class.
+ * subordinate/base class. A GLib timer fires every CHECK_PERIOD seconds;
+ * on each tick the per-interval byte delta is computed, converted to
+ * KiB/s, and clamped to the configured max rate before being added to
+ * the chart.
  *
- * PLATFORM SUPPORT
- * ----------------
- * Two platform backends are compiled conditionally:
- *   Linux   -- reads /proc/net/dev for byte counters.
- *   FreeBSD -- uses sysctl(KERN_NET / IFMIB) to query ifmibdata.
+ * A little bug fixed by Mykola <mykola@2ka.mipt.ru>. FreeBSD support
+ * added by Eygene Ryabinkin <rea-fbsd@codelabs.ru>.
  *
- * POLLING
- * -------
- * A GLib timer fires every CHECK_PERIOD seconds.  On each tick, the
- * per-interval byte delta is computed, converted to KiB/s, and clamped to
- * the configured max rate before being added to the chart.
+ * @par Platform support
+ *   Two platform backends are compiled conditionally:
+ *   - Linux   -- reads /proc/net/dev for byte counters.
+ *   - FreeBSD -- uses sysctl(KERN_NET / IFMIB) to query ifmibdata.
  *
- * CONFIGURATION (xconf keys under the plugin node)
- * -------------------------------------------------
- *   interface  -- interface name (default: "eth0")
- *   RxLimit    -- max expected RX rate in KiB/s (default: 120)
- *   TxLimit    -- max expected TX rate in KiB/s (default: 12)
- *   TxColor    -- chart colour for TX (default: "violet")
- *   RxColor    -- chart colour for RX (default: "blue")
+ * @par Configuration (xconf keys under the plugin node)
+ *   - `interface` -- interface name (default: "eth0").
+ *   - `RxLimit`   -- max expected RX rate in KiB/s (default: 120).
+ *   - `TxLimit`   -- max expected TX rate in KiB/s (default: 12).
+ *   - `TxColor`   -- chart colour for TX (default: "violet").
+ *   - `RxColor`   -- chart colour for RX (default: "blue").
  *
- * PUBLIC API
- * ----------
- *   Exported to the panel loader via the file-scope `class_ptr` variable.
+ * @note Exported to the panel loader via the file-scope `class_ptr`
+ *       variable.
  */
 
 #include "../chart/chart.h"
@@ -403,39 +396,35 @@ end:
     RET(TRUE); /* keep the GLib timer alive */
 }
 
-/*
- * net_constructor -- plugin_class.constructor for the net plugin.
+/**
+ * @brief Initialise the net plugin: set up the chart widget and start
+ *        the sampling timer.
  *
- * Obtains the "chart" plugin class, invokes its constructor to set up the
- * chart widget, then reads net-specific configuration from xconf.  Starts
- * the periodic sampling timer.
- *
- * Parameters:
- *   p -- plugin_instance* allocated by the panel framework.
- *
- * Returns:
- *   1 on success.
- *   0 on failure (chart class unavailable or chart constructor failed).
+ * Obtains the "chart" plugin class, invokes its constructor to set up
+ * the chart widget, then reads net-specific configuration from xconf.
+ * Starts the periodic sampling timer.
  *
  * Side effects:
- *   - Sets k (module-level chart_class* pointer).
+ *   - Sets `k` (module-level chart_class* pointer).
  *   - Populates c->iface, c->max_rx, c->max_tx, c->colors, c->max.
  *   - Calls init_net_stats() to locate the interface (FreeBSD only).
  *   - Sets up the chart with two rows (TX, RX).
- *   - Starts a repeating GLib timer for net_get_load.
+ *   - Starts a repeating GLib timer for net_get_load().
  *   - Calls net_get_load() once immediately to prime the chart.
  *
- * Memory notes:
- *   c->iface and c->colors[] are non-owning pointers to static strings or
- *   xconf-owned strings.  Do NOT g_free() them.
- *
- * BUG: c->iface defaults to the string literal "eth0", which may not exist
- *      on the current system.  No warning is emitted if the interface is
- *      missing.  The chart will simply show zero traffic silently.
- *
- * FIXME: There is no failure path for net_get_load() returning -1 at startup;
- *        the plugin initialises successfully even if the interface does not
- *        exist, showing a silent empty chart.
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1 on success, 0 on failure (chart class unavailable, or the
+ *         chart plugin's own constructor failed).
+ * @note c->iface and c->colors[] are non-owning pointers to static
+ *       strings or xconf-owned strings; do NOT g_free() them.
+ * @warning c->iface defaults to the string literal "eth0", which may not
+ *          exist on the current system. No warning is emitted if the
+ *          interface is missing -- the chart will simply show zero
+ *          traffic silently.
+ * @warning There is no failure path for a missing interface at startup:
+ *          if net_get_load() cannot read stats for `iface`, the plugin
+ *          still initialises successfully and shows a silent, empty
+ *          chart.
  */
 static int
 net_constructor(plugin_instance *p)
@@ -489,21 +478,19 @@ net_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * net_destructor -- plugin_class.destructor for the net plugin.
+/**
+ * @brief Tear down the net plugin.
  *
  * Cancels the sampling timer and tears down the chart plugin.
  *
- * Parameters:
- *   p -- plugin_instance* being destroyed.
- *
  * Side effects:
  *   - Removes the GLib timer (c->timer).
- *   - Calls chart plugin destructor via PLUGIN_CLASS(k)->destructor(p).
+ *   - Calls the chart plugin destructor via PLUGIN_CLASS(k)->destructor(p).
  *   - Releases the chart class reference via class_put("chart").
  *
- * Memory notes:
- *   c->iface and c->colors[] are non-owning; not freed here.
+ * @param p Plugin instance being destroyed.
+ * @note c->iface and c->colors[] are non-owning pointers and are not
+ *       freed here.
  */
 static void
 net_destructor(plugin_instance *p)

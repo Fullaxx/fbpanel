@@ -1,17 +1,26 @@
-/* tclock -- Text Clock plugin for fbpanel.
+/**
+ * @file
+ * @brief Text clock plugin for fbpanel.
  *
- * Unlike dclock (which renders pixel-art glyphs), tclock uses a GtkLabel with
- * Pango markup so the clock text honours the GTK theme font and can embed bold
- * or colour tags directly in the format string (e.g. "<b>%R</b>").
+ * Unlike dclock (which renders pixel-art bitmap glyphs), tclock displays
+ * the time in a plain GtkLabel using Pango markup, so the clock text
+ * honours the GTK theme font and can embed bold or colour tags directly
+ * in the format string (e.g. "<b>%R</b>"). A 1-second g_timeout_add
+ * fires clock_update() continuously to refresh the label and, once per
+ * day, the date tooltip. Also supports an optional popup calendar and a
+ * configurable click action.
  *
- * 2010-04 Jared Minch  < jmminch@sourceforge.net >
- *     Calendar and transparency support
- *     See patch "2981313: Enhancements to 'tclock' plugin" on sf.net
+ * 2010-04 Jared Minch <jmminch@sourceforge.net>: calendar and
+ * transparency support. See patch "2981313: Enhancements to 'tclock'
+ * plugin" on sf.net.
  *
- * Timer: a 1-second g_timeout_add fires clock_update() continuously.
- * Memory: dc->main and dc->clockw are regular GTK child widgets; the parent
- *         container manages their lifetime. Timer handle dc->timer must be
- *         removed in tclock_destructor.
+ * @note This is a text clock rendered with a GtkLabel and Pango markup,
+ *       not an analog clock on a GtkDrawingArea -- confirmed directly
+ *       against this source (no GtkDrawingArea or drawing code exists
+ *       anywhere in this file). docs/ARCHITECTURE.md currently describes
+ *       tclock as an analog GtkDrawingArea clock; that entry is stale
+ *       and should be reconciled with README.md, which matches this
+ *       implementation.
  */
 
 #include <time.h>
@@ -211,31 +220,33 @@ clicked(GtkWidget *widget, GdkEventButton *event, tclock_priv *dc)
     RET(TRUE);
 }
 
-/*
- * tclock_constructor -- initialise and display the text clock plugin.
+/**
+ * @brief Initialise and display the text clock plugin.
  *
- * Parameters:
- *   p -- plugin_instance allocated by the framework.
+ * Reads configuration, builds the widget hierarchy (a GtkEventBox
+ * containing a centred GtkLabel), renders the initial clock text, wires
+ * up the click handler if needed, and starts the 1-second refresh timer.
  *
- * Returns: 1 on success.
+ * @par Configuration (xconf keys, via XCG)
+ *   - `TooltipFmt`   -- strftime format for the tooltip (default
+ *     TOOLTIP_FMT).
+ *   - `ClockFmt`     -- strftime/Pango format for the label (default
+ *     CLOCK_24H_FMT).
+ *   - `Action`       -- optional shell command to run on click.
+ *   - `ShowCalendar` -- bool: show a popup calendar on click (default
+ *     TRUE).
+ *   - `ShowTooltip`  -- bool: show the date tooltip (default TRUE).
  *
- * Configuration keys (via XCG):
- *   TooltipFmt    -- strftime format for tooltip (default TOOLTIP_FMT)
- *   ClockFmt      -- strftime/Pango format for label (default CLOCK_24H_FMT)
- *   Action        -- optional shell command on click
- *   ShowCalendar  -- bool: show popup calendar on click (default TRUE)
- *   ShowTooltip   -- bool: show date tooltip (default TRUE)
+ * @par Widget hierarchy
+ *   p->pwid (container from framework) -> dc->main (GtkEventBox,
+ *   invisible window) -> dc->clockw (GtkLabel, centre-aligned)
  *
- * Widget hierarchy:
- *   p->pwid  (container from framework)
- *     dc->main (GtkEventBox, invisible window)
- *       dc->clockw (GtkLabel, centre-aligned)
- *
- * Signal: "button_press_event" on dc->main -> clicked() (only connected if
- *         action or show_calendar is configured).
- *
- * Timer: dc->timer starts the 1-second periodic update.
- *        Must be cancelled in tclock_destructor.
+ * @param p Plugin instance allocated by the framework.
+ * @return 1. This constructor always succeeds.
+ * @note Connects "button_press_event" on dc->main to clicked(), but only
+ *       if Action or ShowCalendar is configured.
+ * @note Starts a 1-second recurring g_timeout_add timer (dc->timer),
+ *       which must be cancelled in tclock_destructor().
  */
 static int
 tclock_constructor(plugin_instance *p)
@@ -282,19 +293,17 @@ tclock_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * tclock_destructor -- release resources when the plugin is unloaded.
+/**
+ * @brief Release resources when the plugin is unloaded.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * Cancels the refresh timer via g_source_remove(), then destroys
+ * dc->main (which cascades to destroy the child dc->clockw label as
+ * well).
  *
- * Cleanup:
- *   - Cancels the timer via g_source_remove.
- *   - Destroys dc->main (GTK cascade destroys dc->clockw as well).
- *
- * BUG: dc->calendar_window is not explicitly destroyed here. If the user
- *      unloads the plugin while the calendar is open, the window is orphaned
- *      until the process exits.
+ * @param p Plugin instance pointer.
+ * @warning dc->calendar_window is not explicitly destroyed here. If the
+ *          plugin is unloaded while the popup calendar is open, that
+ *          window is orphaned until the process exits.
  */
 static void
 tclock_destructor( plugin_instance *p )

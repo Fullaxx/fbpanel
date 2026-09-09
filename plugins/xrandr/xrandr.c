@@ -1,15 +1,21 @@
-/*
- * xrandr.c -- fbpanel display resolution plugin.
+/**
+ * @file
+ * @brief fbpanel display resolution plugin.
  *
  * Shows the current resolution of the monitor the panel occupies, e.g.
- * "1920x1080".  Updates automatically when the screen configuration
- * changes (monitor connect/disconnect, resolution switch).
+ * "1920x1080", read from GDK screen geometry (GTK2) -- no XRandR library
+ * dependency. The label updates automatically on GdkScreen's
+ * "size-changed" signal (monitor connect/disconnect, resolution switch)
+ * and can optionally run a configured shell command on left-click.
  *
- * No new library dependencies -- uses GDK screen geometry (GTK2).
+ * @par Configuration (xconf keys)
+ *   - `Command` -- command to run on left-click, e.g. "arandr" (default:
+ *     none).
  *
- * Configuration (xconf keys):
- *   ShowRefresh -- show refresh rate if available via XRandR (default: 0)
- *   Command     -- command to run on left-click, e.g. "arandr" (default: none)
+ * @note An earlier version of this file comment also documented a
+ *       `ShowRefresh` key (show refresh rate via XRandR); it is not read
+ *       anywhere in this file and no refresh-rate display is currently
+ *       implemented.
  */
 
 #include <stdio.h>
@@ -78,6 +84,25 @@ xrandr_clicked(GtkWidget *widget, GdkEventButton *event, xrandr_priv *priv)
     RET(FALSE);
 }
 
+/**
+ * @brief Initialise the xrandr plugin.
+ *
+ * Reads the optional Command config key, creates the resolution label,
+ * connects to GdkScreen's "size-changed" signal to keep it updated, and
+ * performs an initial xrandr_update(). If Command is set, also wires a
+ * left-click handler on the plugin widget to run it.
+ *
+ * @param p Plugin instance allocated by the panel framework.
+ * @return 1. This constructor always succeeds.
+ * @note The "size-changed" handler connected here is
+ *       xrandr_update(GdkScreen*, xrandr_priv*), matching GdkScreen's
+ *       (GdkScreen*, gpointer) dispatch signature. BUG-018 was a SIGSEGV
+ *       on every resize caused by an earlier version of xrandr_update()
+ *       taking a spurious leading GtkWidget* parameter, which shifted
+ *       the arguments and turned `priv` into garbage. Keep the callback
+ *       signature in sync with the signal spec if this connection is
+ *       ever changed.
+ */
 static int
 xrandr_constructor(plugin_instance *p)
 {
@@ -112,6 +137,14 @@ xrandr_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Tear down the xrandr plugin.
+ *
+ * Disconnects the "size-changed" signal handler registered in
+ * xrandr_constructor(), if still connected.
+ *
+ * @param p Plugin instance being destroyed.
+ */
 static void
 xrandr_destructor(plugin_instance *p)
 {
