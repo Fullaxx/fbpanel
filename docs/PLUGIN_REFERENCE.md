@@ -90,7 +90,7 @@ static plugin_class class = {
 };
 
 /* Required: pointer used by the PLUGIN macro for auto-registration */
-static plugin_class *class_ptr = (plugin_class *) &class;
+static plugin_class *class_ptr = (plugin_class *) & class;
 ```
 
 ---
@@ -293,7 +293,7 @@ Plugins do not need to do anything special — it is handled automatically.
    - `static int my_constructor(plugin_instance *p)` returning 1 or 0
    - `static void my_destructor(plugin_instance *p)` cleaning up all resources
    - `static plugin_class class = { .type = "<type>", ... };`
-   - `static plugin_class *class_ptr = (plugin_class *) &class;`
+   - `static plugin_class *class_ptr = (plugin_class *) & class;`
 3. Add `<type>` to the `set(PLUGINS ...)` list in `CMakeLists.txt`.
 4. Add a `Plugin { type = <type> }` block to `data/config/default.in`
    if the plugin should be part of the default layout.

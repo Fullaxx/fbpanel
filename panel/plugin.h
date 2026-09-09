@@ -289,7 +289,7 @@ extern void class_unregister(plugin_class *p);
  *   #define PLUGIN
  *   #include "plugin.h"
  *   static plugin_class myclass = { ... };
- *   static plugin_class *class_ptr = &myclass;
+ *   static plugin_class *class_ptr = & myclass;
  * @endcode
  *
  * `ctor()`/`dtor()` below are `__attribute__((constructor/destructor))`
