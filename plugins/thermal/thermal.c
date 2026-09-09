@@ -3,7 +3,7 @@
  * @brief fbpanel CPU/board temperature plugin.
  *
  * Reads a thermal zone temperature from the kernel's thermal sysfs
- * interface (/sys/class/thermal/thermal_zone<N>/temp, in millidegrees
+ * interface (`/sys/class/thermal/thermal_zone<N>/temp`, in millidegrees
  * Celsius, divided by 1000 to get degrees C) and displays it as a text
  * label (e.g. "45°C"), colouring the label orange or red once the
  * configured WarnTemp/CritTemp thresholds are crossed.
@@ -16,7 +16,7 @@
  *
  * @par Configuration (xconf keys)
  *   - `ThermalZone` -- integer zone index N (default: 0); reads
- *     /sys/class/thermal/thermal_zone<N>/temp.
+ *     `/sys/class/thermal/thermal_zone<N>/temp`.
  *   - `WarnTemp` -- temperature in °C at which the label turns orange
  *     (default: 70).
  *   - `CritTemp` -- temperature in °C at which the label turns red
