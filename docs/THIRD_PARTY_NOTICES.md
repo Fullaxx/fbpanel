@@ -11,6 +11,17 @@ own header comment.
 
 ---
 
+## MIT (documentation tooling, not part of fbpanel itself)
+
+| File | Upstream | Author | Year |
+|---|---|---|---|
+| `docs/doxygen-awesome.css` | [doxygen-awesome-css](https://github.com/jothepro/doxygen-awesome-css) v2.4.2 | jothepro | 2021–2025 |
+
+A drop-in Doxygen HTML theme, vendored verbatim (pinned to the v2.4.2 tag)
+for the `make doc` / `cmake --build build --target doc` output. Compatible
+with fbpanel's own MIT license; included here only for completeness, not
+because of any licensing concern.
+
 ## LGPL-2.0-or-later
 
 | File(s) | Upstream | Author | Year |
