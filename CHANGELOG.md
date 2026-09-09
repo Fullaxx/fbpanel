@@ -1,3 +1,12 @@
+## Version: 8.5.1 — 2026-09-08
+* Fix battery plugin build hygiene: `plugins/battery/main.c` (a standalone
+  Valgrind test driver for `power_supply.c`, explicitly not part of the
+  plugin) was being swept into the shipped `libbattery.so` by the
+  non-recursive `file(GLOB plugins/battery/*.c)` in CMakeLists.txt
+  - Moved to `plugins/battery/test/main.c`, outside the glob's reach
+  - Added the `Makefile-test` it already documented but never shipped, so
+    `make -k -f Makefile-test valgrind` now actually works standalone
+
 ## Version: 8.5.0 — 2026-05-04
 * Add Ubuntu 26.04 (Resolute) to build and release CI matrices
 

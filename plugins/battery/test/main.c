@@ -17,7 +17,7 @@
 #include <glib-2.0/glib.h>
 #include <glib-2.0/glib/gprintf.h>
 
-#include "power_supply.h"
+#include "../power_supply.h"
 
 /*
  * main -- entry point for the power_supply test driver.

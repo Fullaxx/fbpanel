@@ -1,0 +1,13 @@
+CFLAGS  = -Wall -Wextra -g -O0 $(shell pkg-config --cflags glib-2.0)
+LDFLAGS = $(shell pkg-config --libs glib-2.0)
+
+main: main.c ../power_supply.c ../power_supply.h
+	$(CC) $(CFLAGS) -o main main.c ../power_supply.c $(LDFLAGS)
+
+valgrind: main
+	valgrind --leak-check=full --show-leak-kinds=all ./main
+
+clean:
+	rm -f main
+
+.PHONY: valgrind clean
