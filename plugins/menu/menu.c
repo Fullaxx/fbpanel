@@ -1,38 +1,27 @@
-/*
- * plugins/menu/menu.c -- Implementation of the fbpanel "menu" plugin.
+/**
+ * @file
+ * @brief Application-menu plugin: a panel button that pops up a hierarchical menu.
  *
- * PURPOSE
- * -------
- * Provides an application-menu button on the panel.  Clicking the button
- * pops up a hierarchical GtkMenu built from an xconf configuration tree.
- * The tree may include:
- *   - Static items (<item> with an <action> command or icon/image).
- *   - Separators (<separator>).
- *   - Submenus (<menu>).
- *   - A dynamically generated system application menu (<systemmenu>),
- *     built by scanning XDG .desktop files (see system_menu.c).
- *   - Included external config files (<include file="...">).
+ * Clicking the button pops up a hierarchical GtkMenu built from an xconf
+ * configuration tree, which may include static items (`<item>` with an
+ * `<action>` command or icon/image), `<separator>` entries, nested
+ * `<menu>` submenus, a dynamically generated system application menu
+ * (`<systemmenu>`, built by scanning XDG .desktop files -- see
+ * system_menu.c), and included external config files (`<include
+ * file="...">`).
  *
- * The menu is built lazily (first button press) and is automatically
- * rebuilt when:
- *   1. The GTK icon theme changes (schedule_rebuild_menu via signal).
- *   2. The XDG application directories change on disk (check_system_menu
- *      polls every 30 s when a <systemmenu> is present).
+ * The menu is built lazily (on first button press) and is automatically
+ * rebuilt when the GTK icon theme changes, or when the XDG application
+ * directories change on disk (polled every 30s while a `<systemmenu>` is
+ * present).
  *
- * AUTOHIDE INTERACTION
- * --------------------
- * When the panel uses autohide, the panel is kept visible while the menu
- * is open (ah_stop) and re-enables autohide on menu unmap (ah_start).
- *
- * PUBLIC API (to the plugin framework)
- * -------------------------------------
- *   class_ptr  (file-scope static)  -- plugin_class* registered with the
- *                                      panel loader at link time.
- *
- * EXTERNAL SYMBOLS CONSUMED (from system_menu.c)
- * -----------------------------------------------
- *   xconf_new_from_systemmenu()  -- build xconf tree from XDG .desktop files
- *   systemmenu_changed(btime)    -- check whether .desktop files changed
+ * @note While the panel uses autohide, the panel is kept visible while the
+ *       menu is open (ah_stop()) and autohide resumes when the menu is
+ *       unmapped (ah_start()).
+ * @note Consumes two externally-defined symbols from system_menu.c:
+ *       xconf_new_from_systemmenu() (builds an xconf tree from XDG
+ *       .desktop files) and systemmenu_changed(btime) (checks whether the
+ *       .desktop files changed since btime).
  */
 
 #include <stdlib.h>
@@ -656,23 +645,16 @@ check_system_menu(plugin_instance *p)
     RET(TRUE); /* keep periodic timer running */
 }
 
-/*
- * menu_constructor -- plugin_class.constructor: initialise the menu plugin.
+/**
+ * @brief Initialise the menu plugin: build the button and schedule the first menu build.
  *
- * Reads configuration from p->xc (icon size), creates the panel button via
- * make_button(), connects the icon-theme-changed signal, and schedules the
- * initial menu build (deferred 2 seconds so the panel finishes layout first).
+ * Reads the icon size from p->xc, creates the panel button via
+ * make_button(), connects schedule_rebuild_menu() to the global icon
+ * theme's "changed" signal, and schedules the initial menu build via a
+ * deferred 2-second timer (so the panel finishes layout first).
  *
- * Parameters:
- *   p -- plugin_instance* allocated by the panel framework.
- *
- * Returns:
- *   1 on success (non-zero as required by plugin_class.constructor contract).
- *
- * Side effects:
- *   Populates m->icon_size, m->bg.
- *   Connects schedule_rebuild_menu to the global icon_theme "changed" signal.
- *   Schedules rebuild_menu via g_timeout_add(2000).
+ * @param p plugin_instance* allocated by the panel framework.
+ * @return 1 (success; non-zero as required by the constructor contract).
  */
 static int
 menu_constructor(plugin_instance *p)
@@ -699,24 +681,17 @@ menu_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * menu_destructor -- plugin_class.destructor: release all plugin resources.
+/**
+ * @brief Release all menu plugin resources.
  *
- * Disconnects the icon-theme signal, tears down the popup menu, and destroys
- * the panel button widget.  Called by the panel framework before the
- * plugin_instance is freed.
+ * Disconnects the icon-theme "changed" signal, calls menu_destroy() to
+ * free the popup menu, its timers, and the expanded xconf tree, then
+ * destroys the panel button widget (m->bg).
  *
- * Parameters:
- *   p -- plugin_instance* being destroyed.
- *
- * Side effects:
- *   Disconnects icon_theme signal.
- *   Calls menu_destroy() to free menu, timers, and xconf tree.
- *   Destroys m->bg widget.
- *
- * BUG: gtk_widget_destroy(m->bg) is called unconditionally.  If make_button()
- *      never set m->bg (because neither "image" nor "icon" was configured in
- *      xconf), this is a NULL pointer dereference / crash.
+ * @param p plugin_instance* being destroyed.
+ * @warning gtk_widget_destroy(m->bg) is called unconditionally. If
+ *          make_button() never set m->bg (because neither "image" nor
+ *          "icon" was configured in xconf), this dereferences NULL.
  */
 static void
 menu_destructor(plugin_instance *p)

@@ -17,35 +17,31 @@
  * Boston, MA 02111-1307, USA.
  */
 
-/*
- * eggtraymanager.c - System Tray Protocol host-side implementation
+/**
+ * @file
+ * @brief System Tray Protocol host-side implementation (freedesktop.org System Tray Protocol manager).
  *
- * This file implements the freedesktop.org System Tray Protocol manager.
  * Key responsibilities:
- *   - Acquire _NET_SYSTEM_TRAY_S<n> X11 selection ownership
- *   - Receive _NET_SYSTEM_TRAY_OPCODE ClientMessage events (dock requests,
- *     balloon messages, message cancellations)
- *   - Create GtkSocket widgets and embed tray client windows via XEMBED
- *   - Reassemble multi-packet balloon messages from MESSAGE_DATA events
- *   - Emit GObject signals to notify the host application (fbpanel main.c)
- *   - Release the selection and clean up on finalize or SelectionClear
+ *   - Acquire `_NET_SYSTEM_TRAY_S<n>` X11 selection ownership.
+ *   - Receive `_NET_SYSTEM_TRAY_OPCODE` ClientMessage events (dock
+ *     requests, balloon messages, message cancellations).
+ *   - Create GtkSocket widgets and embed tray client windows via XEMBED.
+ *   - Reassemble multi-packet balloon messages from MESSAGE_DATA events.
+ *   - Emit GObject signals to notify the host application (fbpanel main.c).
+ *   - Release the selection and clean up on finalize or SelectionClear.
  *
- * XEMBED protocol (XEmbed spec, freedesktop.org):
- *   When a client requests docking, we call gtk_socket_add_id(socket, xid).
- *   GtkSocket then sends XEMBED messages (via ClientMessage) to the plug
- *   window to negotiate embedding: XEMBED_EMBEDDED_NOTIFY, XEMBED_FOCUS_IN,
- *   XEMBED_FOCUS_OUT, XEMBED_WINDOW_ACTIVATE, etc.  The plug reparents its
- *   window into the socket's X window.  GTK handles most of this internally.
+ * XEMBED protocol (XEmbed spec, freedesktop.org): when a client requests
+ * docking, gtk_socket_add_id(socket, xid) is called; GtkSocket then
+ * exchanges XEMBED ClientMessages with the plug window to negotiate
+ * embedding and reparent the plug's window into the socket's X window;
+ * GTK handles most of this internally.
  *
- * GTK2 API usage (not compatible with GTK3):
- *   - GTK_WIDGET_NO_WINDOW() macro (use gtk_widget_get_has_window() in GTK3)
- *   - widget->window direct field access (use gtk_widget_get_window() in GTK3)
- *   - gdk_window_set_back_pixmap() (removed in GTK3; use cairo surfaces)
- *   - GDK_DISPLAY() macro (use gdk_display_get_default() in GTK3)
- *   - GDK_WINDOW_XWINDOW() macro (use GDK_WINDOW_XID() in GTK3)
- *   - GTK_WIDGET_REALIZED() macro (use gtk_widget_get_realized() in GTK3)
- *   - gtk_widget_size_request() (use gtk_widget_get_preferred_size() in GTK3)
- *   - gdk_x11_lookup_xdisplay() (still available in GTK3 via GDK X11)
+ * Uses several GTK2-only APIs not compatible with GTK3 (GTK_WIDGET_NO_WINDOW(),
+ * direct widget->window access, gdk_window_set_back_pixmap(), GDK_DISPLAY(),
+ * GDK_WINDOW_XWINDOW(), GTK_WIDGET_REALIZED(), gtk_widget_size_request()).
+ *
+ * @note Vendored from GNOME libegg (eggtraymanager.c/.h, Anders Carlsson,
+ *       2002), licensed LGPL-2.0-or-later. See docs/THIRD_PARTY_NOTICES.md.
  */
 
 #include <string.h>

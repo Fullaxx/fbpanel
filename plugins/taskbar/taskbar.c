@@ -1,43 +1,25 @@
-/*
- * taskbar.c -- fbpanel taskbar plugin.
+/**
+ * @file
+ * @brief Taskbar plugin: one button per open window, with raise/iconify/menu actions.
  *
- * Displays one button per open window, allowing raise/iconify/menu actions.
- * Modified 2006-09-10 by Hong Jen Yee (PCMan) to add XUrgencyHint support.
+ * Displays one button per open window in a GtkBar grid, letting the user
+ * raise, iconify, or shade windows and pop up a per-window context menu
+ * (Raise / Iconify / Move to workspace / Close). Left-button release
+ * raises the window (or iconifies it if already focused); the middle
+ * button toggles shading; the scroll wheel maps/raises or iconifies;
+ * Ctrl+right-click passes through to the panel.
  *
- * Data structures:
- *   task       — per-window state: button widget, name, icon, focus/flash.
- *   taskbar_priv — plugin state: GHashTable of tasks, GtkBar, config options.
+ * Windows that set `XUrgencyHint` are made to flash: tk_flash_window()
+ * starts a timeout that alternates the button between
+ * `GTK_STATE_SELECTED` and its normal state.
  *
- * Event sources:
- *   FbEv signals: current_desktop, active_window, number_of_desktops,
- *                 client_list, desktop_names.
- *   GDK filter: tb_event_filter() handles PropertyNotify on client windows
- *     (window name, icon, state, type, desktop, urgency changes).
+ * Event sources: FbEv signals ("current_desktop", "active_window",
+ * "number_of_desktops", "client_list", "desktop_names") and a GDK filter
+ * (tb_event_filter()) handling PropertyNotify (name, icon, state, type,
+ * desktop, urgency changes) on client windows.
  *
- * Rendering:
- *   Each task has a GtkButton containing an image and (optionally) a label.
- *   The GtkBar widget lays buttons in a grid; taskbar_size_alloc recomputes
- *   the number of rows/columns when the widget is resized.
- *
- * Urgency (XUrgencyHint):
- *   When a window sets the urgency hint, tk_flash_window() starts a timeout
- *   that alternates the button's state between GTK_STATE_SELECTED and
- *   normal, creating a flashing effect.
- *
- * Mouse behaviour:
- *   LMB release: raise (or iconify if already focused).
- *   MMB: toggle shaded.
- *   RMB: popup context menu (Raise / Iconify / Move to workspace / Close).
- *   Scroll up: map+raise; scroll down: iconify.
- *   Drag motion with delay: activate window after DRAG_ACTIVE_DELAY ms.
- *   Ctrl+RMB: pass to panel (suppress matching release).
- *
- * Fixed bugs:
- *   Fixed (BUG-008): taskbar_destructor now disconnects all tb_make_menu
- *     FbEv signal connections ("number_of_desktops", "desktop_names") in
- *     addition to the tb_net_number_of_desktops connection.
- *   Fixed (BUG-009): use_net_active moved from file-scope static into
- *     taskbar_priv so each plugin instance has its own copy.
+ * @note Modified 2006-09-10 by Hong Jen Yee (PCMan) to add XUrgencyHint
+ *       support.
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -1783,16 +1765,17 @@ static void net_active_detect(taskbar_priv *tb)
     XFree(data);
 }
 
-/*
- * taskbar_constructor -- initialise the taskbar plugin.
+/**
+ * @brief Initialise the taskbar plugin.
  *
- * Reads config, builds the widget hierarchy, fetches the initial
- * window list, and updates the focused window indicator.
+ * Applies the taskbar RC style, detects `_NET_ACTIVE_WINDOW` support,
+ * reads configuration overrides (tooltips, icons-only, filters, mouse
+ * wheel, urgency hint, max task width, etc.), builds the widget
+ * hierarchy, fetches the initial window list, and updates the focused
+ * window indicator.
  *
- * Parameters:
- *   p - plugin_instance allocated by the panel framework.
- *
- * Returns: 1 (always succeeds).
+ * @param p plugin_instance allocated by the panel framework.
+ * @return 1 (always succeeds).
  */
 int
 taskbar_constructor(plugin_instance *p)
@@ -1858,12 +1841,19 @@ taskbar_constructor(plugin_instance *p)
 }
 
 
-/*
- * taskbar_destructor -- clean up all taskbar plugin resources.
+/**
+ * @brief Release all taskbar plugin resources.
  *
- * Removes the GDK event filter, disconnects all 6 FbEv signals,
- * removes all tasks, destroys the hash table, XFree's the window
- * list, and destroys the menu.
+ * Removes the GDK event filter, disconnects all 6 FbEv signal
+ * connections (current_desktop, active_window, number_of_desktops via
+ * tb_net_number_of_desktops, number_of_desktops and desktop_names via
+ * tb_make_menu, client_list), removes all tracked tasks, destroys the
+ * task hash table, XFree()s the cached window list, and destroys the
+ * context menu.
+ *
+ * @param p plugin_instance being torn down.
+ * @note Fixes BUG-008: previously the tb_make_menu FbEv connections
+ *       ("number_of_desktops", "desktop_names") were left dangling.
  */
 static void
 taskbar_destructor(plugin_instance *p)

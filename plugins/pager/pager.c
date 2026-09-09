@@ -1,41 +1,25 @@
-/* pager.c -- fbpanel desktop pager plugin.
+/**
+ * @file
+ * @brief fbpanel desktop pager plugin: thumbnail views of all virtual desktops.
  *
  * Copyright (C) 2002-2003 Anatoly Asviyan <aanatoly@users.sf.net>
  *                         Joe MacDonald   <joe@deserted.net>
  *
  * Displays thumbnail miniatures of all virtual desktops, with small
- * coloured rectangles representing open windows.  Click a thumbnail to
- * switch to that desktop.
+ * coloured rectangles representing open windows. Click a thumbnail to
+ * switch to that desktop. Each desktop thumbnail is a GtkDrawingArea
+ * backed by a GdkPixmap that composites task rectangles and, if enabled,
+ * a scaled wallpaper snapshot obtained via FbBg.
  *
- * Data structures:
- *   task  — tracks one managed window: geometry, desktop, nws/nwwt, icon.
- *   desk  — one desktop thumbnail: GtkDrawingArea + backing GdkPixmap.
- *   pager_priv — top-level plugin state: array of desk*, GHashTable of tasks.
+ * Event sources: FbEv signals ("current_desktop", "active_window",
+ * "number_of_desktops", "client_list_stacking") and a GDK root-window
+ * filter (pager_event_filter()) handling PropertyNotify (window
+ * state/desktop changes) and ConfigureNotify (window moves/resizes) on
+ * client windows.
  *
- * Event sources:
- *   FbEv signals: current_desktop, active_window, number_of_desktops,
- *                 client_list_stacking.
- *   GDK root-window filter: pager_event_filter() handles PropertyNotify
- *     (window state/desktop changes) and ConfigureNotify (window moves/resizes)
- *     on client windows.
- *
- * Rendering:
- *   Each desk has two GdkPixmap backing buffers:
- *     d->pix  — composited task rectangles drawn into this buffer.
- *     d->gpix — scaled wallpaper (from FbBg) drawn into this buffer.
- *   desk_expose_event() blits d->pix → widget window on each expose.
- *   d->dirty = 1 triggers a full redraw on the next expose.
- *
- * Wallpaper:
- *   If pg->wallpaper is enabled (default), FbBg is used to fetch the root
- *   pixmap, scale it to thumbnail size, and composite it into d->gpix.
- *   Non-zero desk indices share the background from desk[0] when possible.
- *
- * Fixed bugs:
- *   Fixed (BUG-006): desk_configure_event() now correctly sets
- *     scalew = widget_w / screen_w and scaleh = widget_h / screen_h.
- *   Fixed (BUG-007): pg->gen_pixbuf is now g_object_unref'd in
- *     pager_destructor.
+ * @note Carries the project's original 2002-2003 copyright (Anatoly
+ *       Asviyan, Joe MacDonald), predating the current MIT LICENSE. See
+ *       docs/THIRD_PARTY_NOTICES.md.
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -1357,18 +1341,17 @@ pager_rebuild_all(FbEv *ev, pager_priv *pg)
 /* 1-pixel border inside the pwid container */
 #define BORDER 1
 
-/*
- * pager_constructor -- initialise the pager plugin.
+/**
+ * @brief Build the desktop-thumbnail grid and subscribe to desktop/window events.
  *
  * Creates the thumbnail grid (one GtkDrawingArea per desktop), subscribes
- * to FbEv signals and installs a GDK event filter for client windows.
- * If wallpaper is enabled, acquires an FbBg reference and connects its
- * "changed" signal.
+ * to FbEv signals ("current_desktop", "active_window",
+ * "number_of_desktops", "client_list_stacking") and installs a GDK event
+ * filter for client windows. If wallpaper display is enabled, acquires an
+ * FbBg reference and connects to its "changed" signal.
  *
- * Parameters:
- *   plug - plugin_instance allocated by the panel framework.
- *
- * Returns: 1 (always succeeds).
+ * @param plug plugin_instance allocated by the panel framework.
+ * @return 1 (always succeeds).
  */
 static int
 pager_constructor(plugin_instance *plug)
@@ -1432,13 +1415,15 @@ pager_constructor(plugin_instance *plug)
     RET(1);
 }
 
-/*
- * pager_destructor -- clean up all pager plugin resources.
+/**
+ * @brief Release all pager plugin resources.
  *
- * Disconnects FbEv signals, removes GDK event filter, frees all desks,
- * clears and destroys the hash table, destroys the box widget,
- * releases gen_pixbuf, disconnects FbBg if wallpaper was enabled,
- * and XFree's the window list.
+ * Disconnects the four FbEv signal handlers, removes the GDK event
+ * filter, frees all desktop thumbnails and tracked tasks, destroys the
+ * box widget, releases gen_pixbuf, disconnects and unrefs FbBg (if
+ * wallpaper was enabled), and XFree()s the cached window list.
+ *
+ * @param p plugin_instance being torn down.
  */
 static void
 pager_destructor(plugin_instance *p)

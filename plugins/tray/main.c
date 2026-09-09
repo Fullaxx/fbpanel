@@ -1,35 +1,26 @@
-/*
- * main.c - fbpanel System Tray plugin
+/**
+ * @file
+ * @brief fbpanel System Tray plugin: hosts a freedesktop.org System Notification Area.
  *
- * This file implements the fbpanel "tray" plugin, which provides a
- * freedesktop.org-compliant System Notification Area (system tray).
- * It acts as the tray manager host: it instantiates an EggTrayManager
- * that acquires the _NET_SYSTEM_TRAY_S<n> X11 selection and listens for
- * XEMBED dock requests from client applications.  When a client requests
- * to be docked, the manager creates a GtkSocket, embeds the client window
- * into it, and emits "tray_icon_added".  This plugin then packs that socket
- * into a GtkBar (a multi-column/row box widget) so the icons are displayed
+ * Acts as the tray manager host: instantiates an EggTrayManager that
+ * acquires the `_NET_SYSTEM_TRAY_S<n>` X11 selection and listens for
+ * XEMBED dock requests from client applications. When a client requests
+ * docking, the manager creates a GtkSocket, embeds the client window into
+ * it, and emits "tray_icon_added"; this plugin then packs that socket
+ * into a GtkBar (a multi-column/row box widget) so the icon is displayed
  * in the panel.
  *
- * Signals connected to EggTrayManager (must be disconnected when the
- * manager object is destroyed - handled by g_object_unref which triggers
- * finalize -> egg_tray_manager_unmanage):
- *   "tray_icon_added"     -> tray_added()
- *   "tray_icon_removed"   -> tray_removed()
- *   "message_sent"        -> message_sent()
- *   "message_cancelled"   -> message_cancelled()
+ * Signals connected to EggTrayManager ("tray_icon_added" -> tray_added(),
+ * "tray_icon_removed" -> tray_removed(), "message_sent" -> message_sent(),
+ * "message_cancelled" -> message_cancelled()) are implicitly disconnected
+ * when the manager object is destroyed (g_object_unref() triggers
+ * finalize() -> egg_tray_manager_unmanage()).
  *
- * Memory ownership notes:
- *   - tray_priv embeds plugin_instance by value (first member), so it is
- *     allocated/freed by the plugin framework.
- *   - tr->bg is obtained via fb_bg_get_for_display() which returns a
- *     reference-counted singleton; we hold one ref (g_object_unref in
- *     destructor balances it).
- *   - tr->tray_manager is created with egg_tray_manager_new() (refcount=1)
- *     and released with g_object_unref() in the destructor.
- *   - GtkSocket widgets for tray icons are owned by the GtkBar container
- *     after gtk_box_pack_end(); they are destroyed when the container is
- *     destroyed or when plug_removed returns FALSE.
+ * @note tr->bg (an FbBg singleton reference) and tr->tray_manager
+ *       (refcount 1 at creation) are both released in tray_destructor().
+ *       GtkSocket widgets for tray icons are owned by the GtkBar
+ *       container once packed; they are destroyed with it, or when
+ *       plug_removed returns FALSE.
  */
 
 #include <stdlib.h>
@@ -253,36 +244,27 @@ message_cancelled (EggTrayManager *manager, GtkWidget *icon, glong id,
     RET();
 }
 
-/*
- * tray_destructor - clean up and release all resources for the tray plugin.
+/**
+ * @brief Release all resources held by the tray plugin, in reverse order of acquisition.
  *
- * Called by the fbpanel plugin framework when the plugin is being unloaded.
- * Must undo everything done in tray_constructor in reverse order.
+ * Order of operations:
+ *  -# Disconnect tr->sid (tr->bg's "changed" signal) -- must precede the
+ *     unref below to avoid a stale callback.
+ *  -# g_object_unref() the FbBg singleton (balances the ref taken in
+ *     tray_constructor()).
+ *  -# g_object_unref() tr->tray_manager, if non-NULL (triggers finalize()
+ *     -> egg_tray_manager_unmanage(), releasing the X11 selection).
+ *  -# fixed_tip_hide() to remove any visible balloon message window.
  *
- * Parameters:
- *   p - pointer to the plugin_instance; cast to tray_priv * because
- *       plugin_instance is the first member of tray_priv (guaranteed layout)
- *
- * Signal disconnection:
- *   tr->sid (connected to tr->bg "changed") is explicitly disconnected here.
- *   The four signals connected to tr->tray_manager are implicitly disconnected
- *   when g_object_unref drops the refcount to zero and triggers finalize(),
- *   which calls egg_tray_manager_unmanage().  This is safe because
- *   GObject signal connections from external objects to a GObject are
- *   automatically invalidated when the emitting object is finalized.
- *
- * Memory release order:
- *   1. Disconnect bg signal (must precede unref to avoid stale callback)
- *   2. Unref bg singleton (balance the ref taken in constructor)
- *   3. Unref tray_manager (triggers finalize -> unmanage -> X selection release)
- *   4. Hide tooltip window
- *
- * NOTE: The four GObject signals connected to tr->tray_manager in
- * tray_constructor are NOT explicitly disconnected here.  This is safe
- * only because tray_priv (the signal target's user_data) lives until after
- * g_object_unref(tr->tray_manager) completes finalization.  However, if any
- * signal were emitted *during* finalization (e.g. LOST_SELECTION), the
- * callback would receive a partially-destroyed tray_priv.
+ * @param p plugin_instance being torn down; cast to tray_priv* (its first
+ *          member is plugin_instance, so the cast is always valid).
+ * @warning The four GObject signals connected to tr->tray_manager in
+ *          tray_constructor() are NOT explicitly disconnected here. This
+ *          is safe only because tray_priv (the signals' user_data)
+ *          remains valid until g_object_unref(tr->tray_manager) completes
+ *          finalization. If any signal were emitted during finalization
+ *          (e.g. LOST_SELECTION), the callback would receive a
+ *          partially-destroyed tray_priv.
  */
 static void
 tray_destructor(plugin_instance *p)
@@ -355,41 +337,35 @@ tray_size_alloc(GtkWidget *widget, GtkAllocation *a,
 }
 
 
-/*
- * tray_constructor - initialize and register the tray plugin.
+/**
+ * @brief Initialise and register the tray plugin.
  *
- * Called by the fbpanel plugin framework when the plugin is loaded.  Builds
- * the widget hierarchy, connects to the FbBg background change notification,
- * and starts the EggTrayManager to claim the system tray X11 selection.
- *
- * Parameters:
- *   p - plugin_instance allocated by the framework with priv_size bytes
- *       (sizeof(tray_priv)); the first member is plugin_instance so the
- *       cast to tray_priv* is valid.
- *
- * Returns:
- *   1 on success (even if another tray is running - a partial init path),
- *   but does NOT return 0 on failure; the caller treats non-zero as success.
- *   NOTE: returning 1 when egg_tray_manager_check_running() is true means the
- *   plugin "succeeds" while tr->tray_manager is NULL - the tray simply shows
- *   no icons.  This is intentional degraded-mode behaviour.
+ * Builds the widget hierarchy, connects to the FbBg background-change
+ * notification, and starts the EggTrayManager to claim the system tray
+ * X11 selection.
  *
  * Widget hierarchy created:
+ * @code
  *   p->pwid (provided by framework)
- *     └─ GtkAlignment (ali) - centers the bar; "size-allocate" -> tray_size_alloc
- *          └─ GtkBar (tr->box) - multi-row/column icon container
- *               └─ GtkSocket widgets (added dynamically by tray_added)
+ *     |- GtkAlignment (ali) -- centers the bar; "size-allocate" -> tray_size_alloc
+ *          |- GtkBar (tr->box) -- multi-row/column icon container
+ *               |- GtkSocket widgets (added dynamically by tray_added)
+ * @endcode
  *
- * Signals connected (and where they are disconnected):
- *   ali    "size-allocate" -> tray_size_alloc  [disconnected when ali destroyed]
- *   tr->bg "changed"       -> tray_bg_changed  [disconnected in tray_destructor]
- *   tr->tray_manager "tray_icon_added"     -> tray_added    [auto on unref]
- *   tr->tray_manager "tray_icon_removed"   -> tray_removed  [auto on unref]
- *   tr->tray_manager "message_sent"        -> message_sent  [auto on unref]
- *   tr->tray_manager "message_cancelled"   -> message_cancelled [auto on unref]
+ * Signals connected: ali "size-allocate" -> tray_size_alloc (disconnected
+ * when ali is destroyed); tr->bg "changed" -> tray_bg_changed
+ * (disconnected in tray_destructor()); and, on tr->tray_manager,
+ * "tray_icon_added", "tray_icon_removed", "message_sent", and
+ * "message_cancelled" (all disconnected automatically when the manager
+ * is unref'd).
  *
- * Memory: tr->bg ref is obtained here; tr->tray_manager is created here.
- * Both are released in tray_destructor.
+ * @param p plugin_instance allocated by the framework with priv_size
+ *          bytes (sizeof(tray_priv)); its first member is plugin_instance
+ *          so the cast to tray_priv* is valid.
+ * @return 1 always. Even when another tray manager is already running on
+ *         this screen, this still returns 1 (success) with
+ *         tr->tray_manager left NULL -- an intentional degraded mode
+ *         where the plugin stays loaded but displays no icons.
  */
 static int
 tray_constructor(plugin_instance *p)

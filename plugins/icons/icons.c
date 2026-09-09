@@ -1,29 +1,24 @@
-/* icons.c -- Invisible icon-override plugin for fbpanel.
+/**
+ * @file
+ * @brief Invisible plugin that assigns per-application or default window icons.
  *
- * This plugin runs invisibly (no visible widget in the panel bar) and
- * intercepts window-icon assignments. It can:
- *   - Assign user-configured per-application icons (matched by WM_CLASS)
- *     to windows that don't have a _NET_WM_ICON property.
- *   - Assign a configurable default icon to all windows with no icon.
+ * Runs invisibly (no visible widget in the panel bar) and intercepts
+ * window-icon assignment. It can assign user-configured per-application
+ * icons (matched by `WM_CLASS`) to windows lacking a `_NET_WM_ICON`
+ * property, and/or assign a configurable default icon to any window with
+ * no icon of its own.
  *
  * Mechanism:
- *   - Subscribes to the fbev "client_list" signal to be notified when the
- *     window list changes (do_net_client_list).
- *   - Registers a GDK root-window event filter (ics_event_filter) to catch
- *     PropertyNotify events on individual windows (WM_CLASS, WM_HINTS changes).
- *   - Icon data is converted from GdkPixbuf RGBA to the X11 ARGB format
- *     expected by _NET_WM_ICON and written via XChangeProperty.
+ *   - Subscribes to the fbev "client_list" signal to learn when the window
+ *     list changes (do_net_client_list()).
+ *   - Registers a GDK root-window event filter (ics_event_filter()) to
+ *     catch PropertyNotify events on individual windows (WM_CLASS, WM_HINTS
+ *     changes).
+ *   - Converts icon data from GdkPixbuf RGBA to the X11 ARGB format expected
+ *     by `_NET_WM_ICON` and writes it via XChangeProperty.
  *
- * Memory:
- *   ics->wmpix -- linked list of wmpix_t; each holds a ARGB data array.
- *                 Freed by drop_config().
- *   ics->dicon -- single wmpix_t for the default icon; freed by drop_config().
- *   ics->task_list -- GHashTable<Window, task*>; tasks freed by free_task().
- *   ics->wins  -- XFree'd array of Window IDs.
- *
- * X11 resource management:
- *   XClassHint strings (res_name, res_class inside task) are allocated by
- *   Xlib and must be freed with XFree, not g_free.
+ * @note XClassHint strings (res_name, res_class inside `task`) are allocated
+ *       by Xlib and must be freed with XFree, not g_free.
  */
 
 #include <stdlib.h>
@@ -817,22 +812,17 @@ theme_changed(icons_priv *ics)
     RET();
 }
 
-/*
- * icons_constructor -- set up the invisible icon-override plugin.
+/**
+ * @brief Set up the invisible icon-override plugin.
  *
- * Parameters:
- *   p -- plugin_instance.
+ * Does not add any visible widget to p->pwid. Creates ics->task_list,
+ * calls theme_changed() to parse the config and apply icons to existing
+ * windows, then connects to the icon-theme "changed" signal, the fbev
+ * "client_list" signal, and installs a GDK root-window event filter for
+ * PropertyNotify.
  *
- * Returns: 1 on success.
- *
- * Does NOT add any visible widget to p->pwid.
- *
- * Sets up:
- *   - ics->task_list (GHashTable<Window, task*>).
- *   - Calls theme_changed() to parse config and apply to existing windows.
- *   - Connects "changed" on the global GTK icon theme.
- *   - Connects "client_list" on fbev.
- *   - Registers a GDK root-window event filter for PropertyNotify.
+ * @param p plugin_instance.
+ * @return 1 (always succeeds).
  */
 static int
 icons_constructor(plugin_instance *p)
@@ -857,14 +847,14 @@ icons_constructor(plugin_instance *p)
 }
 
 
-/*
- * icons_destructor -- release all resources.
+/**
+ * @brief Disconnect all signals and free all icon/task data.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * Disconnects the fbev and icon-theme signals, removes the GDK event
+ * filter, frees all icon and task data via drop_config(), and destroys
+ * the task hash table.
  *
- * Disconnects all signals, removes the GDK filter, frees all icon and task
- * data, and destroys the hash table.
+ * @param p plugin_instance pointer.
  */
 static void
 icons_destructor(plugin_instance *p)

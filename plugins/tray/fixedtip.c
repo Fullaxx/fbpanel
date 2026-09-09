@@ -19,23 +19,19 @@
  * 02111-1307, USA.
  */
 
-/*
- * fixedtip.c -- singleton fixed tooltip window positioned adjacent to the panel.
+/**
+ * @file
+ * @brief Singleton fixed tooltip window positioned adjacent to the panel.
  *
  * Unlike standard GTK tooltips (which follow the mouse and use
  * screen-relative timers), this tooltip is placed at an explicit
- * root-window coordinate next to the panel strut edge.
+ * root-window coordinate next to the panel strut edge. Public API:
+ * fixed_tip_show() creates or updates the tooltip window; fixed_tip_hide()
+ * destroys it.
  *
- * Derived from Metacity's fixed-tip implementation.
- *
- * Singleton state:
- *   tip          - the popup GtkWindow (NULL when not visible)
- *   label        - the GtkLabel child of tip
- *   screen_width / screen_height - cached screen dimensions (for push-onscreen)
- *
- * Public API:
- *   fixed_tip_show() - create or update the tooltip window
- *   fixed_tip_hide() - destroy the tooltip window
+ * @note Derived from Metacity's fixed-tip tooltip implementation (Havoc
+ *       Pennington 2001; Red Hat Inc. 2002), licensed GPL-2.0-or-later.
+ *       See docs/THIRD_PARTY_NOTICES.md.
  */
 
 #include "fixedtip.h"

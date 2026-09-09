@@ -1,24 +1,22 @@
-/* deskno2 -- Desktop Number v2 plugin for fbpanel.
+/**
+ * @file
+ * @brief Desktop Number v2 plugin: shows the current desktop's name (or number).
  *
- * Display workspace number by cmeury@users.sf.net.
+ * An improved version of `deskno` that displays the desktop *name* (from
+ * `_NET_DESKTOP_NAMES`) rather than just the number, falling back to the
+ * 1-based numeric index for desktops that have none. The scroll wheel
+ * cycles through desktops (up = previous, down = next).
  *
- * An improved version of deskno that shows the desktop *name* (from
- * _NET_DESKTOP_NAMES) rather than just the number. Falls back to the
- * 1-based numeric index for desktops that have no name.
+ * EWMH signals (via the global `fbev` object):
+ *   - "current_desktop"    -> update_dno()  (update the displayed name)
+ *   - "desktop_names"      -> update_all()  (rebuild names on change)
+ *   - "number_of_desktops" -> update_all()  (rebuild on desktop count change)
  *
- * Clicking the button launches xfce-setting-show workspaces to open the
- * workspace configuration dialog (hard-coded XFCE dependency -- see BUG).
+ * @warning Clicking the button launches "xfce-setting-show workspaces" to
+ *          open the workspace configuration dialog -- a hard-coded XFCE
+ *          dependency that does nothing useful on non-XFCE desktops.
  *
- * Scroll wheel cycles through desktops; scroll up = previous, down = next.
- *
- * EWMH signals (via fbev):
- *   "current_desktop"    -> update_dno    (update displayed name for new desk)
- *   "desktop_names"      -> update_all    (rebuild name list when names change)
- *   "number_of_desktops" -> update_all    (rebuild when desktop count changes)
- *
- * Memory:
- *   dc->dnames -- g_strfreev'd on each update_all call and in destructor.
- *   dc->lnames -- same; NULL-terminated array allocated with g_new0.
+ * @note Display workspace number, by cmeury@users.sf.net.
  */
 
 /* Display workspace number, by cmeury@users.sf.net */
@@ -184,24 +182,19 @@ scroll (GtkWidget *widget, GdkEventScroll *event, deskno_priv *dc)
 
 }
 
-/*
- * deskno_constructor -- initialise the deskno2 plugin.
- *
- * Parameters:
- *   p -- plugin_instance allocated by the framework.
- *
- * Returns: 1 on success.
+/**
+ * @brief Build the button widget and subscribe to desktop-name updates.
  *
  * Widget hierarchy:
- *   p->pwid (framework container)
- *     dc->main (GtkButton, no relief, initial label "w")
+ *   - p->pwid (framework container)
+ *     - dc->main (GtkButton, no relief, initial label "w")
  *
- * Signals connected on fbev:
- *   "current_desktop"    -> update_dno
- *   "desktop_names"      -> update_all
- *   "number_of_desktops" -> update_all
+ * Connects fbev signals "current_desktop" (update_dno), "desktop_names"
+ * (update_all), and "number_of_desktops" (update_all); all three are
+ * disconnected in deskno_destructor().
  *
- * All three are disconnected in deskno_destructor.
+ * @param p plugin_instance allocated by the framework.
+ * @return 1 (always succeeds).
  */
 static int
 deskno_constructor(plugin_instance *p)
@@ -232,14 +225,11 @@ deskno_constructor(plugin_instance *p)
 }
 
 
-/*
- * deskno_destructor -- release resources on plugin unload.
+/**
+ * @brief Disconnect fbev signal handlers and free the desktop name arrays.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
- *
- * Disconnects fbev signal handlers and frees the desktop name arrays.
- * GTK widgets are freed by the framework (p->pwid cascade).
+ * @param p plugin_instance being torn down.
+ * @note GTK widgets are freed by the framework's p->pwid teardown cascade.
  */
 static void
 deskno_destructor(plugin_instance *p)

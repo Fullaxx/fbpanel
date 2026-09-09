@@ -1,21 +1,21 @@
-/* deskno -- Desktop Number v1 plugin for fbpanel.
+/**
+ * @file
+ * @brief Desktop Number v1 plugin: shows the current virtual desktop index.
  *
- * Reused dclock.c structure and variables from pager.c.
- * 11/23/04 by cmeury@users.sf.net
+ * Displays the current virtual desktop number as a bold label inside a
+ * button. Clicking the button or scrolling on it navigates between
+ * desktops by sending a `_NET_CURRENT_DESKTOP` EWMH client message.
  *
- * Displays the current virtual desktop number as a bold label inside a button.
- * Clicking the button or scrolling on it navigates between desktops using the
- * _NET_CURRENT_DESKTOP EWMH message.
+ * EWMH events are received via the global `fbev` GObject, which emits
+ * signals when the root window properties change:
+ *   - "current_desktop"    -> name_update()
+ *   - "number_of_desktops" -> update()
  *
- * EWMH events are received via the global fbev GObject which emits signals
- * when the root window properties change:
- *   "current_desktop"   -> name_update()
- *   "number_of_desktops"-> update()
+ * No timers are used; updates are purely event-driven. Both signal
+ * handlers are disconnected in deskno_destructor().
  *
- * Signal connection/disconnection is paired correctly: both handlers are
- * disconnected in deskno_destructor.
- *
- * No timers are used; updates are event-driven.
+ * @note Reused dclock.c structure and variables from pager.c.
+ *       Originally written 11/23/04 by cmeury@users.sf.net.
  */
 
 // reused dclock.c and variables from pager.c
@@ -165,24 +165,20 @@ update(GtkWidget *widget, deskno_priv *dc)
     RET(TRUE);
 }
 
-/*
- * deskno_constructor -- set up the desktop-number plugin widget.
- *
- * Parameters:
- *   p -- plugin_instance allocated by the framework.
- *
- * Returns: 1 on success.
+/**
+ * @brief Build the desktop-number button widget and subscribe to EWMH events.
  *
  * Widget hierarchy:
- *   p->pwid (framework container)
- *     dc->main (GtkButton, no relief)
- *       dc->namew (GtkLabel with Pango markup)
+ *   - p->pwid (framework container)
+ *     - dc->main (GtkButton, no relief)
+ *       - dc->namew (GtkLabel with Pango markup)
  *
- * Signals connected (on fbev):
- *   "current_desktop"    -> name_update  (updates the number label)
- *   "number_of_desktops" -> update       (updates the desktop count)
+ * Connects fbev signals "current_desktop" (name_update) and
+ * "number_of_desktops" (update); both are disconnected in
+ * deskno_destructor().
  *
- * Both signals are disconnected in deskno_destructor.
+ * @param p plugin_instance allocated by the framework.
+ * @return 1 (always succeeds).
  */
 static int
 deskno_constructor(plugin_instance *p)
@@ -217,18 +213,12 @@ deskno_constructor(plugin_instance *p)
 }
 
 
-/*
- * deskno_destructor -- clean up the plugin on unload.
+/**
+ * @brief Disconnect the EWMH signal handlers registered by deskno_constructor().
  *
- * Parameters:
- *   p -- plugin_instance pointer.
- *
- * Disconnects both fbev signal handlers registered in deskno_constructor.
- * GTK widget destruction is handled by the framework (it destroys p->pwid).
- *
- * Note: the GtkButton (dc->main) and GtkLabel (dc->namew) are children of
- * p->pwid and will be destroyed automatically when p->pwid is destroyed by
- * the framework after the destructor returns.
+ * @param p plugin_instance being torn down.
+ * @note dc->main and dc->namew are children of p->pwid and are destroyed
+ *       automatically by the framework once this function returns.
  */
 static void
 deskno_destructor(plugin_instance *p)

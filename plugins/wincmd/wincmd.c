@@ -1,18 +1,14 @@
-/*
- * wincmd.c -- "Show Desktop" button plugin for fbpanel.
+/**
+ * @file
+ * @brief "Show Desktop" button plugin for fbpanel.
  *
  * Provides a single button that, when clicked, either iconifies or shades
  * all windows on the current virtual desktop (configurable via xconf).
  *
- * Configuration keys:
- *   Button1  - action for left button:   "none" | "iconify" | "shade"
- *   Button2  - action for middle button: "none" | "iconify" | "shade"
- *   Icon     - icon name (theme icon)
- *   Image    - image file path (used if Icon is not set)
- *   tooltip  - tooltip markup string
- *
- * Default behaviour:
- *   Button1 = iconify, Button2 = shade
+ * Configuration keys: `Button1`/`Button2` select the action for the left
+ * and middle mouse buttons ("none" | "iconify" | "shade"; defaulting to
+ * iconify and shade respectively), `Icon`/`Image` select the button
+ * icon, and `tooltip` sets a tooltip markup string.
  */
 
 #include <stdlib.h>
@@ -261,11 +257,12 @@ clicked (GtkWidget *widget, GdkEventButton *event, gpointer data)
     RET(FALSE);
 }
 
-/*
- * wincmd_destructor -- release wincmd-specific resources.
+/**
+ * @brief Release wincmd-specific resources.
  *
- * Nothing to free: all widgets are children of p->pwid and are
- * destroyed automatically by the plugin framework.
+ * @param p plugin_instance being torn down (unused).
+ * @note Nothing to free: all widgets are children of p->pwid and are
+ *       destroyed automatically by the plugin framework.
  */
 static void
 wincmd_destructor(plugin_instance *p)
@@ -275,23 +272,23 @@ wincmd_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * wincmd_constructor -- initialise the wincmd plugin instance.
+/**
+ * @brief Initialise the wincmd plugin instance.
  *
  * Steps:
- *  1. Set default button actions: button1=WC_ICONIFY, button2=WC_SHADE.
- *  2. Parse xconf keys: Button1, Button2, Icon, Image, tooltip.
- *     - iname (Icon) is a non-owning XCG str pointer; do NOT g_free.
- *     - fname (Image) is XCG str then expand_tilda'd; MUST g_free after use.
- *     - tooltip is a non-owning XCG str pointer.
- *  3. Determine button size from panel orientation.
- *  4. Create the button via fb_button_new().
- *  5. Connect button_press_event → clicked().
- *  6. Apply transparent background if the panel uses pseudo-transparency.
- *  7. Set tooltip markup if provided.
- *  8. Free the expand_tilda'd fname copy.
+ *  -# Set default button actions: button1 = WC_ICONIFY, button2 = WC_SHADE.
+ *  -# Parse xconf keys Button1, Button2, Icon, Image, tooltip.
+ *  -# Determine button size from panel orientation.
+ *  -# Create the button via fb_button_new() and connect
+ *     "button_press_event" to clicked().
+ *  -# Apply the panel's pseudo-transparency tint if enabled.
+ *  -# Set the tooltip markup, if provided.
  *
- * Returns 1 on success.
+ * @param p plugin_instance allocated by the framework.
+ * @return 1 (always succeeds).
+ * @note The `Image` value is expand_tilda()'d into a newly allocated
+ *       string that is freed before returning; `Icon` and `tooltip` are
+ *       non-owning pointers into the xconf tree and must not be freed.
  */
 static int
 wincmd_constructor(plugin_instance *p)

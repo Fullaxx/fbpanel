@@ -18,40 +18,36 @@
  * Boston, MA 02111-1307, USA.
  */
 
-/*
- * EggTrayManager - freedesktop.org System Tray Protocol manager
+/**
+ * @file
+ * @brief Declares EggTrayManager, the freedesktop.org System Tray Protocol manager GObject.
  *
- * This header declares the EggTrayManager GObject class (originally from
- * GNOME's libegg library, vendored into fbpanel).  EggTrayManager implements
- * the host side of the freedesktop.org System Tray Protocol Specification
+ * EggTrayManager implements the host side of the freedesktop.org System
+ * Tray Protocol Specification
  * (https://specifications.freedesktop.org/systemtray-spec/latest/).
  *
  * Protocol overview:
- *   1. The tray manager acquires the _NET_SYSTEM_TRAY_S<n> X11 selection
- *      (where <n> is the screen number).  Only one manager may hold this
- *      selection at a time; a race is possible if two processes both attempt
- *      to acquire it simultaneously.
- *   2. After acquiring the selection the manager broadcasts a MANAGER
+ *   -# The manager acquires the `_NET_SYSTEM_TRAY_S<n>` X11 selection
+ *      (`<n>` = screen number); only one manager may hold it at a time.
+ *   -# After acquiring the selection, it broadcasts a MANAGER
  *      ClientMessage to the root window so waiting tray clients know a
- *      manager is now available.
- *   3. Tray clients send _NET_SYSTEM_TRAY_OPCODE ClientMessages with opcode
- *      SYSTEM_TRAY_REQUEST_DOCK to request embedding.
- *   4. The manager creates a GtkSocket, calls gtk_socket_add_id() with the
- *      client's X window, and emits "tray_icon_added".
- *   5. XEMBED protocol (XEmbed spec) handles the actual window reparenting
- *      and focus/activity negotiation between the socket and plug windows.
- *   6. Balloon messages are sent via SYSTEM_TRAY_BEGIN_MESSAGE followed by
- *      _NET_SYSTEM_TRAY_MESSAGE_DATA ClientMessages carrying up to 20 bytes
- *      per message until the full string is transmitted.
+ *      manager is available.
+ *   -# Tray clients send `_NET_SYSTEM_TRAY_OPCODE` ClientMessages with
+ *      opcode `SYSTEM_TRAY_REQUEST_DOCK` to request embedding.
+ *   -# The manager creates a GtkSocket, calls gtk_socket_add_id() with
+ *      the client's X window, and emits "tray_icon_added".
+ *   -# The XEMBED protocol handles window reparenting and focus/activity
+ *      negotiation between the socket and plug windows.
+ *   -# Balloon messages arrive via `SYSTEM_TRAY_BEGIN_MESSAGE` followed
+ *      by `_NET_SYSTEM_TRAY_MESSAGE_DATA` ClientMessages carrying up to
+ *      20 bytes each until the full string is transmitted.
  *
- * GTK2/GTK3 compatibility note:
- *   This file uses GTK_TYPE_SOCKET in signal type registration and the raw
- *   GdkWindow pointer via widget->window.  Both are GTK2 APIs that were
- *   removed in GTK3.  Porting to GTK3 requires gtk_widget_get_window() and
- *   other accessor functions.
- *
- * Thread safety: EggTrayManager is NOT thread-safe.  All operations must
- * occur on the GLib main thread that drives the GDK event loop.
+ * @note Uses GTK2-only APIs (`GTK_TYPE_SOCKET` in signal registration,
+ *       raw `widget->window` access) that were removed in GTK3.
+ * @warning Not thread-safe: all operations must occur on the GLib main
+ *          thread that drives the GDK event loop.
+ * @note Vendored from GNOME libegg (eggtraymanager.c/.h, Anders Carlsson,
+ *       2002), licensed LGPL-2.0-or-later. See docs/THIRD_PARTY_NOTICES.md.
  */
 
 #ifndef __EGG_TRAY_MANAGER_H__
