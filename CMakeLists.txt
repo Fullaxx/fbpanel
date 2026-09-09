@@ -163,6 +163,23 @@ install(FILES "${PROJECT_SOURCE_DIR}/po/ru_RU.UTF-8.mo" DESTINATION "${CMAKE_INS
 install(FILES "${PROJECT_SOURCE_DIR}/po/it_IT.UTF-8.mo" DESTINATION "${CMAKE_INSTALL_FULL_DATADIR}/locale/it/LC_MESSAGES" RENAME "${PROJECT_NAME}.mo")
 
 # ---------------------------------------------------------------------------
+# Doxygen documentation (opt-in; not part of `make`/`ALL` — call/caller graphs
+# add real time, and a doc-comment typo shouldn't be able to fail a normal build)
+# ---------------------------------------------------------------------------
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+    add_custom_target(doc
+        COMMAND ${CMAKE_COMMAND} -E env "FBPANEL_VERSION=${PROJECT_VERSION}"
+                ${DOXYGEN_EXECUTABLE} "${PROJECT_SOURCE_DIR}/Doxyfile"
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        COMMENT "Generating Doxygen documentation (build/docs/html)"
+        VERBATIM
+    )
+else()
+    message(STATUS "Doxygen not found; 'doc' target unavailable")
+endif()
+
+# ---------------------------------------------------------------------------
 # CPack — Debian packaging
 # ---------------------------------------------------------------------------
 # The package name carries a suffix for non-Release builds so that debug

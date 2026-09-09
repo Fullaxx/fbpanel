@@ -123,6 +123,38 @@ make -C build -j$(nproc)
 sudo make -C build install
 ```
 
+## Documentation
+
+Engineering-level documentation lives in [`docs/`](docs/); a generated API
+reference (full function/struct cross-reference and call graphs) can be
+built locally with Doxygen — see below.
+
+| Doc | Covers |
+|-----|--------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Repository layout, core module responsibilities, startup sequence, X11/EWMH integration |
+| [PLUGIN_REFERENCE.md](docs/PLUGIN_REFERENCE.md) | Writing a plugin: `plugin_class`/`plugin_instance`, the `PLUGIN` macro, lifecycle, requirements |
+| [XCONF_REFERENCE.md](docs/XCONF_REFERENCE.md) | Config file format and every plugin's config keys |
+| [MEMORY_MODEL.md](docs/MEMORY_MODEL.md) | Ownership and who-frees-what conventions |
+| [GTK_WIDGET_LIFECYCLE.md](docs/GTK_WIDGET_LIFECYCLE.md) | GTK2 widget create/show/destroy lifecycle and plugin responsibilities |
+| [LIBRARY_USAGE.md](docs/LIBRARY_USAGE.md) | Reusing fbpanel's internal APIs from plugin code |
+| [DEBUGGING.md](docs/DEBUGGING.md) | Build types, ASan/Valgrind/GDB workflows |
+| [BUGS_AND_ISSUES.md](docs/BUGS_AND_ISSUES.md) | Log of tracked (fixed) bugs with root causes |
+| [MENU_ICON.md](docs/MENU_ICON.md) | Menu-button icon configuration |
+| [TODO_NEW_PLUGIN_IDEAS.md](docs/TODO_NEW_PLUGIN_IDEAS.md) | Candidate future plugins |
+| [INSTALL.md](INSTALL.md) | Build requirements and CMake build types |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+
+### Generated API reference
+
+With [Doxygen](https://www.doxygen.nl/) and [Graphviz](https://graphviz.org/) installed:
+
+```bash
+cmake --build build --target doc
+```
+
+Output is written to `build/docs/html/index.html`. Not built by default
+(`make`/`ALL`), and not committed to git.
+
 ## Contributing
 
 Bug reports and pull requests are welcome.
