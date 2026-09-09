@@ -1,28 +1,29 @@
-/*
- * loadavg.c -- fbpanel system load average plugin.
+/**
+ * @file
+ * @brief fbpanel system load average plugin.
  *
  * Displays the 1-, 5-, and/or 15-minute load averages from /proc/loadavg
  * as a text label on the panel.
  *
- * Soft-disable behaviour:
- *   If /proc/loadavg cannot be opened at startup (e.g. procfs not mounted,
- *   running inside a container without procfs), the constructor emits a
- *   g_message() and returns 0.  The panel skips the plugin and continues
- *   loading normally.
+ * @note Soft-disable: if /proc/loadavg cannot be opened at startup (e.g.
+ *       procfs not mounted, or running inside a container without
+ *       procfs), the constructor emits g_message() and returns 0; the
+ *       panel skips the plugin and continues loading normally.
  *
- * Configuration (xconf keys):
- *   Show1    — boolean; show 1-minute average  (default: true).
- *   Show5    — boolean; show 5-minute average  (default: true).
- *   Show15   — boolean; show 15-minute average (default: false).
- *   Period   — update interval in milliseconds  (default: 5000).
+ * @par Configuration (xconf keys)
+ *   - Show1  -- boolean; show the 1-minute average (default: true).
+ *   - Show5  -- boolean; show the 5-minute average (default: true).
+ *   - Show15 -- boolean; show the 15-minute average (default: false).
+ *   - Period -- update interval in milliseconds (default: 5000).
  *
- * Data source:
- *   /proc/loadavg — first three whitespace-separated fields are the 1-, 5-,
- *   and 15-minute exponential moving averages of the run-queue length.
+ * @par Data source
+ *   /proc/loadavg -- the first three whitespace-separated fields are the
+ *   1-, 5-, and 15-minute exponential moving averages of the run-queue
+ *   length.
  *
- * Widget hierarchy:
- *   p->pwid (GtkBgbox, managed by framework)
- *     priv->label (GtkLabel)
+ * @par Widget hierarchy
+ *   p->pwid (GtkBgbox, managed by framework) contains priv->label
+ *   (GtkLabel).
  */
 
 #include <stdio.h>
@@ -124,16 +125,14 @@ loadavg_update(loadavg_priv *priv)
     RET(TRUE);
 }
 
-/*
- * loadavg_constructor -- initialise the load average plugin.
+/**
+ * @brief Constructor for the loadavg plugin.
  *
- * Probes /proc/loadavg; returns 0 (soft-disable) if it is unreadable.
- * Creates a GtkLabel, reads config, and starts the polling timer.
+ * Probes /proc/loadavg (returning 0/soft-disable if it is unreadable),
+ * creates a GtkLabel, reads config, and starts the polling timer.
  *
- * Parameters:
- *   p -- plugin_instance allocated by the framework.
- *
- * Returns: 1 on success, 0 on failure.
+ * @param p plugin_instance* allocated by the framework.
+ * @return 1 on success, 0 on failure (/proc/loadavg is unreadable).
  */
 static int
 loadavg_constructor(plugin_instance *p)
@@ -177,14 +176,13 @@ loadavg_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * loadavg_destructor -- clean up load average plugin resources.
+/**
+ * @brief Destructor for the loadavg plugin.
  *
- * Removes the polling timer.  GTK widgets are owned by p->pwid and
+ * Removes the polling timer. GTK widgets are owned by p->pwid and
  * destroyed automatically by the framework.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p plugin_instance* pointer.
  */
 static void
 loadavg_destructor(plugin_instance *p)

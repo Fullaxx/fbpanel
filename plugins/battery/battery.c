@@ -1,20 +1,22 @@
-/*
- * battery.c -- fbpanel plugin: battery charge level indicator using icons.
+/**
+ * @file
+ * @brief fbpanel plugin: battery charge level indicator using themed icons.
  *
- * Displays the current battery charge level using a set of themed icons
- * via the "meter" plugin class.  The charge level and charging state are
- * read from sysfs (/sys/class/power_supply/) or the legacy /proc/acpi/
- * interface (via os_linux.c.inc on Linux).
+ * Displays the current battery charge level and charging state using a set
+ * of themed icons rendered through the "meter" plugin class. Battery state
+ * is read via the legacy /proc/acpi/battery/ interface first, falling back
+ * to the modern /sys/class/power_supply/ interface (via os_linux.c.inc on
+ * Linux), polled every 2000 ms.
  *
- * Plugin lifecycle:
- *   battery_constructor() -- called once; sets up the timer.
- *   battery_update()      -- called every 2000 ms by the GLib main loop.
- *   battery_destructor()  -- called once; removes the timer, tears down meter.
+ * @par Plugin lifecycle
+ *   - battery_constructor() -- called once; sets up the timer.
+ *   - battery_update()      -- called every 2000 ms by the GLib main loop.
+ *   - battery_destructor()  -- called once; removes the timer, tears down
+ *     the meter.
  *
- * Timer management:
- *   c->timer holds the GSource ID returned by g_timeout_add().
- *   It is removed in battery_destructor() with g_source_remove().
- *   The timer ID is checked for non-zero before removal as a safety guard.
+ * @note Timer management: c->timer holds the GSource ID returned by
+ *       g_timeout_add(). It is removed in battery_destructor() with
+ *       g_source_remove(), guarded by a non-zero check before removal.
  */
 
 #include "misc.h"
@@ -166,28 +168,26 @@ battery_update(battery_priv *c)
 }
 
 
-/*
- * battery_constructor -- fbpanel plugin constructor for the battery plugin.
+/**
+ * @brief Constructor for the battery plugin.
  *
  * Initialises the plugin by:
- *   1. Obtaining the "meter" plugin class via class_get().
- *   2. Calling the meter constructor to create the GtkImage widget.
- *   3. Registering a 2-second periodic timer for battery_update().
- *   4. Running an immediate update so the icon is visible before the first tick.
+ *   -# Obtaining the "meter" plugin class via class_get().
+ *   -# Calling the meter constructor to create the GtkImage widget.
+ *   -# Registering a 2-second periodic timer for battery_update().
+ *   -# Running an immediate update so the icon is visible before the first
+ *      tick.
  *
- * Parameters:
- *   p -- plugin_instance* allocated by the fbpanel framework (size = priv_size).
- *        Must not be NULL.
- *
- * Returns: 1 on success, 0 on failure (class_get or meter constructor failed).
- *
- * Timer: c->timer receives the GSource ID from g_timeout_add().
- *   This ID MUST be passed to g_source_remove() in battery_destructor().
- *   Failure to do so leaks the timer and causes use-after-free callbacks
- *   after the plugin is destroyed.
- *
- * Memory: Does not allocate anything beyond what the framework and meter
- *   class manage.  class_put("meter") must balance class_get("meter").
+ * @param p plugin_instance* allocated by the fbpanel framework (size =
+ *          priv_size). Must not be NULL.
+ * @return 1 on success, 0 on failure (class_get() or the meter constructor
+ *         failed).
+ * @note c->timer receives the GSource ID from g_timeout_add(). This ID
+ *       MUST be passed to g_source_remove() in battery_destructor();
+ *       failure to do so leaks the timer and causes use-after-free
+ *       callbacks after the plugin is destroyed.
+ * @note Does not allocate anything beyond what the framework and meter
+ *       class manage. class_put("meter") must balance class_get("meter").
  */
 static int
 battery_constructor(plugin_instance *p)
@@ -221,24 +221,22 @@ battery_constructor(plugin_instance *p)
     RET(1); // success
 }
 
-/*
- * battery_destructor -- fbpanel plugin destructor for the battery plugin.
+/**
+ * @brief Destructor for the battery plugin.
  *
  * Tears down the plugin in reverse construction order:
- *   1. Cancels the periodic timer (prevents callbacks after destruction).
- *   2. Destroys the meter widget via the meter class destructor.
- *   3. Releases the meter class reference (balances class_get in constructor).
+ *   -# Cancels the periodic timer (prevents callbacks after destruction).
+ *   -# Destroys the meter widget via the meter class destructor.
+ *   -# Releases the meter class reference (balances class_get() in the
+ *      constructor).
  *
- * Parameters:
- *   p -- plugin_instance* (same pointer passed to battery_constructor).
- *        Must not be NULL.
- *
- * Timer cleanup: g_source_remove(c->timer) cancels the GLib timer.
- *   The guard (c->timer != 0) is a safety check; g_source_remove(0) would
- *   attempt to remove a nonexistent source and print a GLib warning.
- *
- * Signal cleanup: No g_signal_connect() calls are made in this plugin
- *   (signals are managed by the meter class; its destructor handles them).
+ * @param p plugin_instance* (same pointer passed to battery_constructor()).
+ *          Must not be NULL.
+ * @note g_source_remove(c->timer) cancels the GLib timer; the guard
+ *       (c->timer != 0) avoids passing 0 to g_source_remove(), which would
+ *       attempt to remove a nonexistent source and print a GLib warning.
+ * @note No g_signal_connect() calls are made in this plugin -- signals are
+ *       managed by the meter class, whose destructor handles them.
  */
 static void
 battery_destructor(plugin_instance *p)

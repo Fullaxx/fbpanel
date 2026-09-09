@@ -1,22 +1,24 @@
-/*
- * cpufreq.c -- fbpanel CPU frequency plugin.
+/**
+ * @file
+ * @brief fbpanel CPU frequency plugin.
  *
- * Displays the current CPU clock frequency for a configured core as a
- * text label (e.g. "3.40 GHz" or "800 MHz").
+ * Displays the current CPU clock frequency for a configured core as a text
+ * label (e.g. "3.40 GHz" or "800 MHz"), read from the cpufreq sysfs
+ * interface.
  *
- * Soft-disable behaviour:
- *   If the cpufreq sysfs node for the configured CPU index does not exist
- *   (e.g. running in a VM, container, or on a CPU without frequency scaling
- *   support), the constructor emits g_message() and returns 0.  The panel
- *   skips the plugin and continues loading normally.
+ * @note Soft-disable: if the cpufreq sysfs node for the configured CPU
+ *       index does not exist (e.g. a VM, a container, or a CPU without
+ *       frequency scaling support), the constructor emits g_message() and
+ *       returns 0; the panel skips the plugin and continues loading
+ *       normally.
  *
- * Configuration (xconf keys):
- *   CpuIndex -- CPU core index to read (default: 0, meaning cpu0).
- *   Period   -- update interval in milliseconds (default: 2000).
+ * @par Configuration (xconf keys)
+ *   - CpuIndex -- CPU core index to read (default: 0, meaning cpu0).
+ *   - Period   -- update interval in milliseconds (default: 2000).
  *
- * Data source:
- *   /sys/devices/system/cpu/cpu<N>/cpufreq/scaling_cur_freq
- *   Value is in kHz.  Divided by 1000 to get MHz; by 1000000 to get GHz.
+ * @par Data source
+ *   - `/sys/devices/system/cpu/cpu<N>/cpufreq/scaling_cur_freq`
+ *   - Value is in kHz. Divided by 1000 to get MHz; by 1000000 to get GHz.
  */
 
 #include <stdio.h>
@@ -94,13 +96,13 @@ cpufreq_update(cpufreq_priv *priv)
     RET(TRUE);
 }
 
-/*
- * cpufreq_constructor -- initialise the CPU frequency plugin.
+/**
+ * @brief Constructor for the cpufreq plugin.
  *
- * Reads config, constructs the sysfs path, and probes it.  Returns 0
- * (soft-disable) if the path does not exist.
+ * Reads config, constructs the sysfs path, and probes it.
  *
- * Returns: 1 on success, 0 on soft-disable.
+ * @param p plugin_instance* allocated by the fbpanel framework.
+ * @return 1 on success, 0 on soft-disable (the sysfs path does not exist).
  */
 static int
 cpufreq_constructor(plugin_instance *p)
@@ -145,13 +147,12 @@ cpufreq_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * cpufreq_destructor -- clean up CPU frequency plugin resources.
+/**
+ * @brief Destructor for the cpufreq plugin.
  *
  * Cancels the timer and frees the heap-allocated sysfs path.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p plugin_instance* pointer.
  */
 static void
 cpufreq_destructor(plugin_instance *p)

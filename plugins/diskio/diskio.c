@@ -1,35 +1,36 @@
-/*
- * diskio.c -- fbpanel disk I/O monitor plugin.
+/**
+ * @file
+ * @brief fbpanel disk I/O monitor plugin.
  *
  * Displays disk read and write throughput as a scrolling strip chart,
- * using the shared "chart" plugin as the rendering backend (same pattern
- * as the cpu and net plugins).
+ * using the shared `chart` plugin as the rendering backend (same pattern
+ * as the `cpu` and `net` plugins).
  *
- * Soft-disable behaviour:
- *   If /proc/diskstats cannot be opened at startup, or if the configured
- *   device name is not found in /proc/diskstats, the constructor emits
- *   g_message() and returns 0.  The panel skips the plugin and continues.
+ * @note Soft-disable: if /proc/diskstats cannot be opened at startup, or
+ *       if the configured device name is not found in /proc/diskstats,
+ *       the constructor emits g_message() and returns 0; the panel skips
+ *       the plugin and continues.
  *
- * Configuration (xconf keys):
- *   Device     -- block device name to monitor (default: "sda").
- *   ReadLimit  -- max expected read throughput in KiB/s for chart scale
- *                 (default: 100000).
- *   WriteLimit -- max expected write throughput in KiB/s for chart scale
- *                 (default: 100000).
- *   ReadColor  -- chart colour for reads  (default: "green").
- *   WriteColor -- chart colour for writes (default: "red").
+ * @par Configuration (xconf keys)
+ *   - Device     -- block device name to monitor (default: "sda").
+ *   - ReadLimit  -- max expected read throughput in KiB/s for chart scale
+ *     (default: 100000).
+ *   - WriteLimit -- max expected write throughput in KiB/s for chart
+ *     scale (default: 100000).
+ *   - ReadColor  -- chart colour for reads (default: "green").
+ *   - WriteColor -- chart colour for writes (default: "red").
  *
- * Data source:
- *   /proc/diskstats — fields (1-indexed):
- *     1: major  2: minor  3: devname
- *     4: reads_completed  5: reads_merged  6: sectors_read  7: ms_reading
- *     8: writes_completed 9: writes_merged 10: sectors_written 11: ms_writing
- *   Throughput (KiB/s) = delta_sectors * 512 / 1024 / CHECK_PERIOD
- *                      = delta_sectors / (2 * CHECK_PERIOD)
+ * @par Data source
+ *   /proc/diskstats -- fields (1-indexed): 1 major, 2 minor, 3 devname,
+ *   4 reads_completed, 5 reads_merged, 6 sectors_read, 7 ms_reading,
+ *   8 writes_completed, 9 writes_merged, 10 sectors_written,
+ *   11 ms_writing. Throughput (KiB/s) = delta_sectors * 512 / 1024 /
+ *   CHECK_PERIOD = delta_sectors / (2 * CHECK_PERIOD).
  *
- * Struct layout (C-style inheritance):
- *   diskio_priv embeds chart_priv as its FIRST member, allowing safe cast
- *   to plugin_instance* and chart_priv* (same pattern as cpu_priv, net_priv).
+ * @note Struct layout (C-style inheritance): diskio_priv embeds
+ *       chart_priv as its first member, allowing safe cast to
+ *       chart_priv*, plugin_instance* (same pattern as cpu_priv,
+ *       net_priv).
  */
 
 #include <stdio.h>
@@ -189,13 +190,16 @@ push:
     RET(TRUE);
 }
 
-/*
- * diskio_constructor -- initialise the disk I/O plugin.
+/**
+ * @brief Constructor for the diskio plugin.
  *
- * Acquires the chart helper class, reads config, probes /proc/diskstats
- * for the configured device, and starts the sampling timer.
+ * Acquires the `chart` helper class, reads config, probes
+ * /proc/diskstats for the configured device, and starts the sampling
+ * timer.
  *
- * Returns: 1 on success, 0 on soft-disable.
+ * @param p plugin_instance* allocated by the panel framework.
+ * @return 1 on success, 0 on soft-disable (`chart` class unavailable, or
+ *         the configured device is not found in /proc/diskstats).
  */
 static int
 diskio_constructor(plugin_instance *p)
@@ -249,13 +253,13 @@ diskio_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * diskio_destructor -- clean up disk I/O plugin resources.
+/**
+ * @brief Destructor for the diskio plugin.
  *
- * Cancels the timer, tears down the chart, and releases the chart class.
+ * Cancels the timer, tears down the chart, and releases the `chart`
+ * class reference.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p plugin_instance* pointer.
  */
 static void
 diskio_destructor(plugin_instance *p)

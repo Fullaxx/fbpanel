@@ -1,37 +1,39 @@
-/*
- * brightness.c -- fbpanel screen brightness plugin.
+/**
+ * @file
+ * @brief fbpanel screen brightness plugin.
  *
- * Displays the current backlight brightness level as a text percentage
- * and allows adjustment via the scroll wheel.
+ * Displays the current backlight brightness level as a text percentage and
+ * allows adjustment via the scroll wheel, reading and writing sysfs files
+ * under /sys/class/backlight/ directly.
  *
- * Soft-disable behaviour:
- *   If no backlight device is found under /sys/class/backlight/ (e.g.
- *   running on a desktop without a backlight driver, or in a container),
- *   the constructor emits g_message() and returns 0.  The panel skips
- *   the plugin and continues loading normally.
+ * @note Soft-disable: if no backlight device is found under
+ *       /sys/class/backlight/ (e.g. a desktop without a backlight driver,
+ *       or a container), the constructor emits g_message() and returns 0;
+ *       the panel skips the plugin and continues loading normally.
+ * @note Write permission: adjusting brightness requires write access to
+ *       the brightness sysfs node (typically
+ *       `/sys/class/backlight/<dev>/brightness`). On most systems this
+ *       requires either membership in the 'video' group (via a udev rule
+ *       such as `TAG+="uaccess"`) or running fbpanel as root. Read-only
+ *       display works for any user.
  *
- * Write permission:
- *   Adjusting brightness requires write access to the brightness sysfs
- *   node (typically /sys/class/backlight/<dev>/brightness).  On most
- *   systems this requires either membership in the 'video' group (via a
- *   udev rule such as "TAG+=\"uaccess\"") or running fbpanel as root.
- *   Read-only display works for any user.
+ * @par Configuration (xconf keys)
+ *   - Device -- backlight device name (default: auto-detected, first
+ *     entry found under /sys/class/backlight/).
+ *   - Step   -- brightness adjustment step in percent of max (default: 5).
+ *   - Period -- update interval in milliseconds (default: 2000).
  *
- * Configuration (xconf keys):
- *   Device -- backlight device name (default: auto-detected, first entry
- *             found under /sys/class/backlight/).
- *   Step   -- brightness adjustment step in percent of max (default: 5).
- *   Period -- update interval in milliseconds (default: 2000).
+ * @par Data source
+ *   - `/sys/class/backlight/<dev>/brightness`     -- current raw
+ *     brightness.
+ *   - `/sys/class/backlight/<dev>/max_brightness` -- maximum raw
+ *     brightness.
+ *   - Percentage = (brightness / max_brightness) * 100.
  *
- * Data source:
- *   /sys/class/backlight/<dev>/brightness     -- current raw brightness.
- *   /sys/class/backlight/<dev>/max_brightness -- maximum raw brightness.
- *   Percentage = (brightness / max_brightness) * 100.
- *
- * Widget hierarchy:
- *   p->pwid (GtkBgbox, managed by framework)
- *     priv->label (GtkLabel showing "XX%")
- *       connected to: "scroll-event" for brightness adjustment
+ * @par Widget hierarchy
+ *   p->pwid (GtkBgbox, managed by framework) contains priv->label
+ *   (GtkLabel showing "XX%"), connected to "scroll-event" for brightness
+ *   adjustment.
  */
 
 #include <stdio.h>
@@ -239,14 +241,15 @@ brightness_find_device(void)
     return result;
 }
 
-/*
- * brightness_constructor -- initialise the backlight brightness plugin.
+/**
+ * @brief Constructor for the brightness plugin.
  *
- * Auto-detects the backlight device if Device is not configured.
- * Probes the brightness sysfs file and reads max_brightness.
- * Returns 0 (soft-disable) if no backlight device is found.
+ * Auto-detects the backlight device if `Device` is not configured, probes
+ * the brightness sysfs file, and reads `max_brightness`.
  *
- * Returns: 1 on success, 0 on soft-disable.
+ * @param p plugin_instance* allocated by the fbpanel framework.
+ * @return 1 on success, 0 on soft-disable (no backlight device found, or
+ *         its sysfs files are not accessible).
  */
 static int
 brightness_constructor(plugin_instance *p)
@@ -328,15 +331,14 @@ brightness_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * brightness_destructor -- clean up brightness plugin resources.
+/**
+ * @brief Destructor for the brightness plugin.
  *
- * Cancels the timer and frees heap-allocated sysfs paths.
- * The scroll-event signal on priv->label is disconnected automatically
- * when the label widget is destroyed by the framework (p->pwid destruction).
+ * Cancels the timer and frees heap-allocated sysfs paths. The
+ * "scroll-event" signal on priv->label is disconnected automatically when
+ * the label widget is destroyed by the framework (p->pwid destruction).
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p plugin_instance* pointer.
  */
 static void
 brightness_destructor(plugin_instance *p)

@@ -1,30 +1,29 @@
-/*
- * cpu.c -- fbpanel CPU usage chart plugin.
+/**
+ * @file
+ * @brief fbpanel CPU usage chart plugin.
  *
- * Displays CPU utilisation as a scrolling bar chart (using the shared
- * chart plugin as a helper).  One row, coloured green by default.
+ * Displays CPU utilisation as a scrolling bar chart, using the shared
+ * `chart` plugin as a rendering helper. Shows one row, coloured green by
+ * default (configurable via the `Color` xconf key).
  *
- * Platform support:
- *   Linux   — reads /proc/stat every 1000 ms.
- *   FreeBSD — reads kern.cp_time sysctl every 1000 ms.
- *   Other   — stub that always reports 0% (non-functional).
+ * @par Platform support
+ *   - Linux   -- reads /proc/stat every 1000 ms.
+ *   - FreeBSD -- reads the kern.cp_time sysctl every 1000 ms.
+ *   - Other   -- stub that always reports 0% (non-functional).
  *
- * Struct layout (C-style inheritance):
- *   cpu_priv embeds chart_priv as its FIRST member so that a cpu_priv*
- *   can be safely cast to chart_priv* and plugin_instance* (the chart
- *   plugin, in turn, embeds plugin_instance as its first member).
- *
- * Timer:
- *   cpu_get_load() is called once from the constructor and then every
- *   1000 ms via g_timeout_add().  It computes the δ between successive
- *   /proc/stat readings, passes the normalised fraction [0..1] to
- *   chart->add_tick(), and updates the tooltip.
- *
- * Fixed bugs:
- *   Fixed (BUG-001): Non-Linux/FreeBSD stub now uses parameter name "s"
- *     to match the Linux/FreeBSD branches.
- *   Fixed (BUG-002): Locals "a" and "b" are now initialised to 0.0 at
- *     declaration so the DBG() trace after "goto end" reads defined values.
+ * @note Struct layout (C-style inheritance): cpu_priv embeds chart_priv as
+ *       its first member, so a cpu_priv* can be safely cast to
+ *       chart_priv*, plugin_instance* (the chart plugin, in turn, embeds
+ *       plugin_instance as its first member).
+ * @note Timer: cpu_get_load() is called once from the constructor and then
+ *       every 1000 ms via g_timeout_add(). It computes the delta between
+ *       successive /proc/stat readings, passes the normalised fraction
+ *       [0..1] to chart->add_tick(), and updates the tooltip.
+ * @note Fixed bugs: (BUG-001) the non-Linux/FreeBSD stub now uses the
+ *       parameter name "s" to match the Linux/FreeBSD branches;
+ *       (BUG-002) locals "a" and "b" in cpu_get_load() are now initialised
+ *       to 0.0 at declaration so the DBG() trace after "goto end" reads
+ *       defined values.
  */
 
 #include <string.h>
@@ -192,18 +191,17 @@ end:
 
 }
 
-/*
- * cpu_constructor -- initialise the CPU plugin.
+/**
+ * @brief Constructor for the cpu plugin.
  *
- * Acquires the chart helper class, delegates widget construction to
- * chart_constructor (via PLUGIN_CLASS(k)->constructor), configures one
- * row coloured green (or from config "Color" key), starts the 1000 ms
- * polling timer.
+ * Acquires the `chart` helper class, delegates widget construction to
+ * chart_constructor() (via PLUGIN_CLASS(k)->constructor), configures one
+ * row coloured green (or from the `Color` config key), and starts the
+ * 1000 ms polling timer.
  *
- * Parameters:
- *   p - plugin_instance allocated by the panel framework.
- *
- * Returns: 1 on success, 0 on failure (chart class unavailable).
+ * @param p plugin_instance* allocated by the panel framework.
+ * @return 1 on success, 0 on failure (`chart` class unavailable, or its
+ *         constructor failed).
  */
 static int
 cpu_constructor(plugin_instance *p)
@@ -230,14 +228,13 @@ cpu_constructor(plugin_instance *p)
 }
 
 
-/*
- * cpu_destructor -- clean up CPU plugin resources.
+/**
+ * @brief Destructor for the cpu plugin.
  *
  * Removes the polling timer, calls the chart destructor to free tick
- * buffers and GdkGCs, then releases the chart class reference.
+ * buffers and GdkGCs, then releases the `chart` class reference.
  *
- * Parameters:
- *   p - plugin_instance.
+ * @param p plugin_instance* pointer.
  */
 static void
 cpu_destructor(plugin_instance *p)

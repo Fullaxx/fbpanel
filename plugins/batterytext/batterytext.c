@@ -10,22 +10,32 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
+ */
+
+/**
+ * @file
+ * @brief Generic text-label monitor plugin for fbpanel, used here to
+ *        display battery charge.
  *
- * Overview:
- *   Displays battery charge as a text label using raw sysfs files rather
- *   than the power_supply abstraction layer.  Reads individual files such
- *   as "energy_full_design", "energy_full", "energy_now", "power_now" and
- *   "status" directly from the battery path (default: BAT0).
+ * Displays battery charge as a text label, reading raw energy/power sysfs
+ * attribute files (such as "energy_full_design", "energy_full",
+ * "energy_now", "power_now" and "status") directly from the battery path
+ * (default: BAT0), rather than going through the power_supply abstraction
+ * layer used by the `battery` plugin.
  *
- * Plugin lifecycle:
- *   batterytext_constructor() -- creates GtkLabel, starts polling timer.
- *   text_update()             -- called every `time` ms; refreshes label+tooltip.
- *   batterytext_destructor()  -- cancels timer.
+ * @par Plugin lifecycle
+ *   - batterytext_constructor() -- creates the GtkLabel, starts the
+ *     polling timer.
+ *   - text_update()             -- called every `time` ms; refreshes the
+ *     label and tooltip.
+ *   - batterytext_destructor()  -- cancels the timer.
  *
- * Timer management:
- *   gm->timer stores the GSource ID returned by g_timeout_add().
- *   It MUST be removed in batterytext_destructor() via g_source_remove().
- *   The destructor checks (gm->timer != 0) before removal as a safety guard.
+ * @note Timer management: gm->timer stores the GSource ID returned by
+ *       g_timeout_add(). It MUST be removed in batterytext_destructor()
+ *       via g_source_remove(); the destructor checks (gm->timer != 0)
+ *       before removal as a safety guard.
+ * @note Copyright 2017 Fred Stober, licensed GPL-2.0-only (not this
+ *       project's default MIT). See docs/THIRD_PARTY_NOTICES.md.
  */
 
 #include <sys/types.h>
@@ -228,27 +238,23 @@ text_update(batterytext_priv *gm)
     RET(TRUE); // keep timer alive
 }
 
-/*
- * batterytext_destructor -- fbpanel plugin destructor.
+/**
+ * @brief Destructor for the batterytext plugin.
  *
- * Cancels the periodic polling timer.  The GtkLabel (gm->main) is a
- * child of p->pwid and is destroyed automatically by the GTK widget
- * hierarchy teardown managed by the fbpanel framework.
+ * Cancels the periodic polling timer. The GtkLabel (gm->main) is a child
+ * of p->pwid and is destroyed automatically by the GTK widget hierarchy
+ * teardown managed by the fbpanel framework.
  *
- * Parameters:
- *   p -- plugin_instance* (same pointer passed to batterytext_constructor).
- *        Must not be NULL.
- *
- * Timer cleanup: g_source_remove(gm->timer) cancels the GLib timer.
- *   The guard (gm->timer != 0) prevents passing 0 to g_source_remove(),
- *   which would print a GLib warning.
- *
- * Signal cleanup: No g_signal_connect() calls are made in this plugin,
- *   so no signal handlers need to be disconnected.
- *
- * NOTE: gm->textsize and gm->battery are NOT freed here because they
- *   point either to string literals or to strings managed by the XCG
- *   config system, not heap memory owned by this plugin.
+ * @param p plugin_instance* (same pointer passed to
+ *          batterytext_constructor()). Must not be NULL.
+ * @note g_source_remove(gm->timer) cancels the GLib timer; the guard
+ *       (gm->timer != 0) prevents passing 0 to g_source_remove(), which
+ *       would print a GLib warning.
+ * @note No g_signal_connect() calls are made in this plugin, so no signal
+ *       handlers need to be disconnected.
+ * @note gm->textsize and gm->battery are NOT freed here because they
+ *       point either to string literals or to strings managed by the XCG
+ *       config system, not heap memory owned by this plugin.
  */
 static void
 batterytext_destructor(plugin_instance *p)
@@ -262,35 +268,30 @@ batterytext_destructor(plugin_instance *p)
     RET();
 }
 
-/*
- * batterytext_constructor -- fbpanel plugin constructor.
+/**
+ * @brief Constructor for the batterytext plugin.
  *
  * Initialises the plugin by:
- *   1. Setting default configuration values.
- *   2. Reading overrides from the config system via XCG().
- *   3. Creating the GtkLabel widget and performing an immediate update.
- *   4. Registering a periodic polling timer.
+ *   -# Setting default configuration values.
+ *   -# Reading overrides from the config system via XCG().
+ *   -# Creating the GtkLabel widget and performing an immediate update.
+ *   -# Registering a periodic polling timer.
  *
- * Parameters:
- *   p -- plugin_instance* allocated by the fbpanel framework.
- *        sizeof(*p) == priv_size == sizeof(batterytext_priv).
- *        Must not be NULL.
- *
- * Returns: 1 on success, 0 on failure (currently never fails after widget
- *   creation because no g_source_add failure is checked).
- *
- * Timer: gm->timer receives the GSource ID from g_timeout_add().
- *   MUST be cancelled in batterytext_destructor().
- *
- * Memory:
- *   gm->main (GtkLabel) is owned by the GTK widget hierarchy; destroyed
- *   when the parent container is destroyed.
- *   gm->textsize and gm->battery point to literals or XCG-managed strings;
- *   do NOT free them in the destructor.
- *
- * NOTE: gm->time is the polling interval in milliseconds.  The default
- *   of 500 ms is quite frequent for a battery plugin (typical battery
- *   state only changes over seconds or minutes), but is configurable.
+ * @param p plugin_instance* allocated by the fbpanel framework;
+ *          sizeof(*p) == priv_size == sizeof(batterytext_priv). Must not
+ *          be NULL.
+ * @return 1 on success, 0 on failure (currently never fails after widget
+ *         creation, since the g_timeout_add() return value is not
+ *         checked).
+ * @note gm->timer receives the GSource ID from g_timeout_add(). MUST be
+ *       cancelled in batterytext_destructor().
+ * @note gm->main (GtkLabel) is owned by the GTK widget hierarchy;
+ *       destroyed when the parent container is destroyed. gm->textsize
+ *       and gm->battery point to literals or XCG-managed strings; do NOT
+ *       free them in the destructor.
+ * @note gm->time is the polling interval in milliseconds. The default of
+ *       500 ms is quite frequent for a battery plugin (typical battery
+ *       state only changes over seconds or minutes), but is configurable.
  */
 static int
 batterytext_constructor(plugin_instance *p)

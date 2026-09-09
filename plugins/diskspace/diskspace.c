@@ -1,28 +1,30 @@
-/*
- * diskspace.c -- fbpanel disk space plugin.
+/**
+ * @file
+ * @brief fbpanel disk space plugin.
  *
  * Displays used/free space for a configured filesystem mount point as a
- * GtkProgressBar.  The tooltip shows absolute usage in human-readable form.
+ * GtkProgressBar, queried via statvfs(3). The tooltip shows absolute
+ * usage in human-readable form.
  *
- * Soft-disable behaviour:
- *   If statvfs() fails for the configured path at startup (mount point does
- *   not exist or is not accessible), the constructor emits g_message() and
- *   returns 0.  The panel skips the plugin and continues loading normally.
+ * @note Soft-disable: if statvfs() fails for the configured path at
+ *       startup (the mount point does not exist or is not accessible),
+ *       the constructor emits g_message() and returns 0; the panel skips
+ *       the plugin and continues loading normally.
  *
- * Configuration (xconf keys):
- *   MountPoint -- filesystem path to monitor (default: "/").
- *   Period     -- update interval in milliseconds (default: 10000).
+ * @par Configuration (xconf keys)
+ *   - MountPoint -- filesystem path to monitor (default: "/").
+ *   - Period     -- update interval in milliseconds (default: 10000).
  *
- * Data source:
- *   statvfs(3) — standard POSIX call; no external dependencies.
- *   used  = (f_blocks - f_bfree) * f_frsize
- *   total = f_blocks * f_frsize
+ * @par Data source
+ *   statvfs(3) -- a standard POSIX call; no external dependencies.
+ *   used  = (f_blocks - f_bfree) * f_frsize;
+ *   total = f_blocks * f_frsize.
  *   (Uses f_bfree rather than f_bavail so the bar reflects actual block
- *    usage including blocks reserved for root, matching df -h behaviour.)
+ *   usage including blocks reserved for root, matching `df -h` behaviour.)
  *
- * Widget hierarchy:
- *   p->pwid (GtkBgbox, managed by framework)
- *     priv->pb (GtkProgressBar, oriented per panel orientation)
+ * @par Widget hierarchy
+ *   p->pwid (GtkBgbox, managed by framework) contains priv->pb
+ *   (GtkProgressBar, oriented per panel orientation).
  */
 
 #include <stdio.h>
@@ -125,14 +127,15 @@ diskspace_update(diskspace_priv *priv)
     RET(TRUE);
 }
 
-/*
- * diskspace_constructor -- initialise the disk space plugin.
+/**
+ * @brief Constructor for the diskspace plugin.
  *
  * Reads config, probes the mount point with statvfs(), and creates the
- * GtkProgressBar.  Returns 0 (soft-disable) if the mount point is
- * inaccessible at startup.
+ * GtkProgressBar.
  *
- * Returns: 1 on success, 0 on soft-disable.
+ * @param p plugin_instance* allocated by the fbpanel framework.
+ * @return 1 on success, 0 on soft-disable (the mount point is
+ *         inaccessible at startup).
  */
 static int
 diskspace_constructor(plugin_instance *p)
@@ -182,14 +185,13 @@ diskspace_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * diskspace_destructor -- clean up disk space plugin resources.
+/**
+ * @brief Destructor for the diskspace plugin.
  *
- * Cancels the polling timer.  GTK widgets are destroyed by the framework.
- * priv->mountpoint is a non-owning xconf pointer; do not free.
+ * Cancels the polling timer. GTK widgets are destroyed by the framework.
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p plugin_instance* pointer.
+ * @note priv->mountpoint is a non-owning xconf pointer; do not free it.
  */
 static void
 diskspace_destructor(plugin_instance *p)
