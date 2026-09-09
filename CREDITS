@@ -21,3 +21,7 @@ Nice battery icons for battery meter plugin were taken
 from http://rocketdock.com/addon/docklets/9523
 
 All people who made or will make any contribution to this project.
+
+See docs/THIRD_PARTY_NOTICES.md for the specific files vendored or
+adapted from the projects above (and others) and the licenses they
+actually carry.

@@ -141,6 +141,7 @@ built locally with Doxygen — see below.
 | [BUGS_AND_ISSUES.md](docs/BUGS_AND_ISSUES.md) | Log of tracked (fixed) bugs with root causes |
 | [MENU_ICON.md](docs/MENU_ICON.md) | Menu-button icon configuration |
 | [TODO_NEW_PLUGIN_IDEAS.md](docs/TODO_NEW_PLUGIN_IDEAS.md) | Candidate future plugins |
+| [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) | Vendored/adapted files and the licenses they actually carry |
 | [INSTALL.md](INSTALL.md) | Build requirements and CMake build types |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 
