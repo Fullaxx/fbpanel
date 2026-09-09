@@ -1,4 +1,20 @@
-## Version: 8.5.1 — 2026-09-08
+## Version: 8.5.1 — 2026-09-09
+* Add a full Doxygen documentation system:
+  - New `Doxyfile` and an opt-in `make doc` / `cmake --build build --target
+    doc` CMake target; not part of a normal build
+  - Doxygen-tagged the 12 core `panel/*.h` headers (the public API plugins
+    rely on) and all 40 plugins' file briefs and lifecycle functions
+  - Added `tools/doxygen_comment_filter.py`, a Doxygen `INPUT_FILTER` that
+    gives the rest of the existing source comments full Doxygen coverage
+    without modifying a single committed source file
+  - New `docs/SIGNAL_CALLBACKS.md`: canonical signal/timer/filter callback
+    signatures, covering the pattern behind BUG-010, BUG-017, BUG-018, and
+    BUG-019
+  - New `docs/THIRD_PARTY_NOTICES.md`: catalogs vendored LGPL/GPL files
+    inside this otherwise MIT-licensed tree
+  - New CI job (`.github/workflows/build.yml`) that fails on real Doxygen
+    errors, not on pre-existing undocumented symbols
+  - Vendored doxygen-awesome-css for a nicer local `make doc` theme
 * Fix battery plugin build hygiene: `plugins/battery/main.c` (a standalone
   Valgrind test driver for `power_supply.c`, explicitly not part of the
   plugin) was being swept into the shipped `libbattery.so` by the
