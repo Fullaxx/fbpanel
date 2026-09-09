@@ -1,18 +1,18 @@
-/*
- * windowtitle.c -- fbpanel active window title plugin.
+/**
+ * @file
+ * @brief Displays the title of the currently focused window.
  *
- * Displays the title of the currently focused window in a GtkLabel.
- * The label expands to fill available space and truncates with ellipsis
- * when the text is too wide.
+ * Subscribes to the fbev "active_window" signal and shows that window's
+ * title in a GtkLabel, preferring `_NET_WM_NAME` and falling back to
+ * `WM_NAME`. The label expands to fill available space and truncates
+ * with an ellipsis when the text is too wide.
  *
  * When no window has focus (or on a desktop with no windows), the label
  * shows "--".  The plugin never soft-disables: it always loads and
  * handles the case of no active window gracefully.
  *
- * Event source:
- *   Subscribes to the fbev "active_window" GObject signal, which is
- *   triggered by the panel's X event loop whenever _NET_ACTIVE_WINDOW
- *   changes on the root window.
+ * The fbev "active_window" GObject signal is triggered by the panel's X
+ * event loop whenever `_NET_ACTIVE_WINDOW` changes on the root window.
  *
  * Title resolution (same strategy as the taskbar plugin):
  *   1. _NET_WM_NAME (UTF-8, EWMH standard) via get_utf8_property().
@@ -119,14 +119,14 @@ windowtitle_update(GtkWidget *widget, windowtitle_priv *priv)
     RET();
 }
 
-/*
- * windowtitle_constructor -- initialise the active window title plugin.
+/**
+ * @brief Initialise the active window title plugin.
  *
  * Creates a GtkLabel, subscribes to fbev "active_window", and sets
  * the initial title by calling windowtitle_update() immediately.
- * This plugin never soft-disables; it always returns 1.
  *
- * Returns: 1 always.
+ * @param p This plugin instance.
+ * @return Always 1 (this plugin never soft-disables).
  */
 static int
 windowtitle_constructor(plugin_instance *p)
@@ -160,14 +160,13 @@ windowtitle_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * windowtitle_destructor -- clean up window title plugin resources.
+/**
+ * @brief Clean up window title plugin resources.
  *
- * Disconnects the fbev "active_window" signal handler.
- * The GtkLabel is destroyed by the framework (p->pwid destruction).
+ * Disconnects the fbev "active_window" signal handler. The GtkLabel is
+ * destroyed by the framework (p->pwid destruction).
  *
- * Parameters:
- *   p -- plugin_instance pointer.
+ * @param p This plugin instance.
  */
 static void
 windowtitle_destructor(plugin_instance *p)

@@ -1,9 +1,12 @@
-/*
- * xkill.c -- fbpanel window killer plugin.
+/**
+ * @file
+ * @brief Panel button that kills the X client owning a clicked window.
  *
- * Click the panel button to enter "kill mode": the cursor changes to a
- * skull/crosshair.  Click any window to send XKillClient() for that
- * window's owning client.  Press Escape or right-click to cancel.
+ * Clicking the button enters "kill mode": the pointer is grabbed and its
+ * cursor changed to a skull-and-crossbones glyph (XC_pirate). The next
+ * click on any window walks up to that window's top-level ancestor and
+ * sends its owning client an XKillClient(); a non-left click or a key
+ * press (e.g. Escape) cancels kill mode instead.
  *
  * No new library dependencies -- uses X11 and GDK which are already linked.
  *
@@ -162,6 +165,12 @@ xkill_button_clicked(GtkWidget *widget, GdkEventButton *event,
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Create the panel button and wire its click handler.
+ *
+ * @param p This plugin instance.
+ * @return Always 1 (this plugin never soft-disables).
+ */
 static int
 xkill_constructor(plugin_instance *p)
 {
@@ -187,6 +196,11 @@ xkill_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Cancel any active kill-mode grab and free the cursor.
+ *
+ * @param p This plugin instance.
+ */
 static void
 xkill_destructor(plugin_instance *p)
 {

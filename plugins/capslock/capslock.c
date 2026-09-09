@@ -1,9 +1,11 @@
-/*
- * capslock.c -- fbpanel keyboard lock indicator plugin.
+/**
+ * @file
+ * @brief Caps Lock / Num Lock / Scroll Lock state indicator.
  *
- * Shows the state of Caps Lock, Num Lock, and/or Scroll Lock as coloured
- * text labels in the panel.  Active indicators are shown in a configurable
- * "active" colour; inactive ones in the "inactive" colour (or hidden).
+ * Polls `XkbGetIndicatorState()` every 200 ms and shows the state of Caps
+ * Lock, Num Lock, and/or Scroll Lock as coloured text labels in the
+ * panel.  Active indicators are shown in bold/theme colour; inactive
+ * ones are dimmed, or hidden entirely if so configured.
  *
  * Uses XkbGetIndicatorState() (part of libX11, no new dependency).
  * Polls every 200 ms for near-zero-latency indication.
@@ -111,6 +113,17 @@ capslock_update(capslock_priv *priv)
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Build the indicator labels and start the poll timer.
+ *
+ * Reads the `ShowCaps`/`ShowNum`/`ShowScroll`/`HideInactive` config keys,
+ * creates a label per enabled indicator inside a horizontal box, then
+ * starts a 200 ms timer that keeps them in sync with the XKB indicator
+ * state.
+ *
+ * @param p This plugin instance.
+ * @return Always 1 (this plugin never soft-disables).
+ */
 static int
 capslock_constructor(plugin_instance *p)
 {
@@ -160,6 +173,11 @@ capslock_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Stop the indicator poll timer.
+ *
+ * @param p This plugin instance.
+ */
 static void
 capslock_destructor(plugin_instance *p)
 {

@@ -1,11 +1,12 @@
-/*
- * clipboard.c -- fbpanel clipboard history plugin.
+/**
+ * @file
+ * @brief Clipboard history popup plugin.
  *
  * Monitors the X11 CLIPBOARD selection via GTK2's GtkClipboard.  When
- * the clipboard owner changes and the new content is text, it is prepended
- * to a ring buffer of up to MaxHistory entries.  Left-clicking the panel
- * button pops up a GtkMenu listing the history; clicking an item restores
- * it as the current clipboard content.
+ * the clipboard owner changes and the new content is text, it is
+ * prepended to a ring buffer of up to `MaxHistory` entries.
+ * Left-clicking the panel button pops up a GtkMenu listing the history;
+ * clicking an item restores it as the current clipboard content.
  *
  * PRIMARY selection (mouse-highlight paste) is also monitored optionally.
  *
@@ -224,6 +225,17 @@ clip_button_clicked(GtkWidget *widget, GdkEventButton *event,
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Create the panel button and start watching the clipboard.
+ *
+ * Reads the `MaxHistory` (clamped to 1..100) and `WatchPrimary` config
+ * keys, builds the panel button, subscribes to "owner-change" on the
+ * CLIPBOARD selection (and optionally PRIMARY), then seeds the history
+ * with whatever text is currently on the clipboard.
+ *
+ * @param p This plugin instance.
+ * @return Always 1 (this plugin never soft-disables).
+ */
 static int
 clipboard_constructor(plugin_instance *p)
 {
@@ -274,6 +286,11 @@ clipboard_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Disconnect clipboard signal handlers and free the history.
+ *
+ * @param p This plugin instance.
+ */
 static void
 clipboard_destructor(plugin_instance *p)
 {

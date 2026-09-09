@@ -1,10 +1,13 @@
-/*
- * chart.c -- fbpanel scrolling bar-chart helper plugin.
+/**
+ * @file
+ * @brief Reusable scrolling bar-chart helper "library" plugin.
  *
- * Implements a reusable scrolling bar-chart widget used by the cpu, mem2,
- * net, and battery plugins.  chart_priv (defined in chart.h) must be the
- * FIRST member of the consuming plugin's private struct so that the plugin
- * instance pointer can be cast to chart_priv* safely.
+ * Not an end-user-visible plugin: it implements a scrolling bar-chart
+ * widget consumed internally by the cpu, mem2, net, and diskio plugins,
+ * each obtaining it via `class_get("chart")`.  chart_priv (defined in
+ * chart.h) must be the FIRST member of the consuming plugin's private
+ * struct so that the plugin instance pointer can be cast to chart_priv*
+ * safely.
  *
  * The chart draws vertical bars left-to-right, scrolling over time.
  * Each column represents one time tick; each tick stores one value per row
@@ -29,7 +32,7 @@
  *   "size-allocate" on pwid → chart_size_allocate (reallocates ticks on resize).
  *   "expose-event"  on pwid → chart_expose_event  (clears + redraws).
  *
- * Note: c->da (drawing area) is the same as p->pwid — the GtkBgbox itself.
+ * @note c->da (drawing area) is the same as p->pwid — the GtkBgbox itself.
  */
 
 #include <string.h>
@@ -353,20 +356,20 @@ chart_set_rows(chart_priv *c, int num, gchar *colors[])
     RET();
 }
 
-/*
- * chart_constructor -- initialise the chart plugin.
+/**
+ * @brief Initialise the chart base-class instance.
  *
  * Connects size-allocate and expose-event signals to the pwid widget.
  * Sets c->da = pwid (the chart draws directly on the plugin's GtkBgbox).
  * Sets a minimum size request of 40×25 pixels.
  *
- * Note: The consuming plugin (e.g., cpu, mem2) must call k->set_rows()
- *   after chart_constructor to configure the number of rows and colours.
- *
- * Parameters:
- *   p - plugin_instance (must be cast to chart_priv* by the caller's struct layout).
- *
- * Returns: 1 (always succeeds).
+ * @param p plugin_instance pointer; the caller's own plugin_instance,
+ *          which must embed chart_priv as its first member, so this is
+ *          safely reinterpreted as a chart_priv*.
+ * @return Always 1 (always succeeds).
+ * @note The consuming plugin (e.g. cpu, mem2) must call k->set_rows()
+ *       after this constructor to configure the number of rows and
+ *       colours before the first add_tick().
  */
 static int
 chart_constructor(plugin_instance *p)
@@ -391,14 +394,14 @@ chart_constructor(plugin_instance *p)
     RET(1);
 }
 
-/*
- * chart_destructor -- clean up chart resources.
+/**
+ * @brief Clean up chart base-class resources.
  *
- * Frees the tick matrix and GdkGC array.
- * The pwid widget is destroyed by the panel framework after this returns.
+ * Frees the tick matrix and GdkGC array. The pwid widget is destroyed by
+ * the panel framework after this returns.
  *
- * Parameters:
- *   p - plugin_instance.
+ * @param p plugin_instance pointer (actually a chart_priv, per the
+ *          embedding convention described above).
  */
 static void
 chart_destructor(plugin_instance *p)

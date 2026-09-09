@@ -1,14 +1,15 @@
-/*
- * windowlist.c -- fbpanel window list popup plugin.
+/**
+ * @file
+ * @brief Panel button that pops up a menu of all open windows.
  *
- * A small button that, when clicked, pops up a menu listing all open
- * windows.  Selecting a window raises and focuses it via EWMH.
+ * Clicking the button queries `_NET_CLIENT_LIST` on the root window
+ * (read fresh each time the menu is shown, not cached via a signal) and
+ * builds a GtkMenu listing every window's title; picking an entry raises
+ * and focuses that window by sending an `_NET_ACTIVE_WINDOW` client
+ * message, the same mechanism a pager uses.
  *
  * This is a compact alternative to the full taskbar plugin; useful on
  * very small panels where a taskbar would be too wide.
- *
- * Data source: _NET_CLIENT_LIST (updated via fbev "client_list" signal).
- * Activation:  sends _NET_ACTIVE_WINDOW client message (same as a pager).
  *
  * No new library dependencies -- X11 and EWMH helpers already linked.
  *
@@ -145,6 +146,15 @@ wl_button_clicked(GtkWidget *widget, GdkEventButton *event,
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Build the panel button and its click handler.
+ *
+ * Reads the `MaxTitle` config key, creates the panel button labelled
+ * "Win", and wires its button-press event to pop up the window list menu.
+ *
+ * @param p This plugin instance.
+ * @return Always 1 (this plugin never soft-disables).
+ */
 static int
 windowlist_constructor(plugin_instance *p)
 {
@@ -173,6 +183,14 @@ windowlist_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Tear down the window list plugin.
+ *
+ * @param p This plugin instance.
+ * @note No resources to release here: the button widget is destroyed by
+ *       the framework, and no timers or external signal handlers were
+ *       registered by this plugin.
+ */
 static void
 windowlist_destructor(plugin_instance *p)
 {

@@ -97,36 +97,33 @@ typedef struct {
 typedef struct {
     plugin_class plugin; // MUST be first: base class vtable (constructor/destructor/etc.)
 
-    /*
-     * add_tick -- append a new sample to the strip chart.
+    /**
+     * @brief Append a new sample to the strip chart.
      *
-     * Parameters:
-     *   c   -- chart_priv* for the plugin instance.
-     *   val -- array of c->rows float values, each in [0.0, 1.0].
-     *          Values are clamped to [0, 1] before storage.
-     *          val[i] represents the fractional utilisation for row i
-     *          (e.g. 0.75 = 75% CPU usage).
-     *
-     * Side effects: Advances c->pos, schedules a GTK redraw via
-     *   gtk_widget_queue_draw().
+     * @param c   chart_priv* for the plugin instance.
+     * @param val Array of c->rows float values, each in [0.0, 1.0].
+     *            Values are clamped to [0, 1] before storage. val[i]
+     *            represents the fractional utilisation for row i
+     *            (e.g. 0.75 = 75% CPU usage).
+     * @note Advances c->pos and schedules a GTK redraw via
+     *       gtk_widget_queue_draw().
      */
     void (*add_tick)(chart_priv *c, float *val);
 
-    /*
-     * set_rows -- configure the number of data series for the chart.
+    /**
+     * @brief Configure the number of data series for the chart.
      *
      * Frees existing tick buffers and GDK graphics contexts, then
-     * re-allocates them for `num` rows with the provided colours.
+     * re-allocates them for @p num rows with the provided colours.
      *
-     * Parameters:
-     *   c      -- chart_priv* for the plugin instance.
-     *   num    -- number of data rows; must satisfy 0 < num < 10
-     *             (enforced with g_assert; values outside this range abort).
-     *   colors -- NULL-terminated array of num colour name strings
-     *             (e.g. {"green", "blue", NULL}).  Each string is parsed
-     *             with gdk_color_parse().  Must not be NULL.
-     *
-     * Note: This function resets c->pos to 0 (via chart_alloc_ticks).
+     * @param c      chart_priv* for the plugin instance.
+     * @param num    Number of data rows; must satisfy 0 < num < 10
+     *               (enforced with g_assert; values outside this range
+     *               abort).
+     * @param colors NULL-terminated array of num colour name strings
+     *               (e.g. {"green", "blue", NULL}). Each string is
+     *               parsed with gdk_color_parse(). Must not be NULL.
+     * @note Resets c->pos to 0 (via chart_alloc_ticks).
      */
     void (*set_rows)(chart_priv *c, int num, gchar *colors[]);
 } chart_class;

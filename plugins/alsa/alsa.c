@@ -1,12 +1,11 @@
-/*
- * alsa.c -- fbpanel ALSA volume control plugin.
+/**
+ * @file
+ * @brief ALSA-based volume control plugin (replaces the deprecated OSS
+ *        volume plugin).
  *
- * Replaces the deprecated OSS volume plugin.  Uses libasound (ALSA) to
- * read and control the Master playback volume on the default sound card.
- *
- * Inherits from the "meter" plugin class (alsa_priv must be the FIRST
- * member of the struct so that an alsa_priv* can be safely cast to
- * meter_priv* or plugin_instance*).
+ * Uses libasound (ALSA) to read and control the Master playback volume
+ * on the default sound card, showing the level through the "meter"
+ * helper plugin's icon and tooltip, plus an optional floating slider.
  *
  * Features:
  *   - Polls current volume every 500 ms and updates meter icons + tooltip
@@ -18,6 +17,10 @@
  * Configuration (xconf keys):
  *   Card    -- ALSA card identifier (default: "default")
  *   Control -- Mixer element name (default: "Master")
+ *
+ * @note Inherits from the "meter" plugin class: alsa_priv embeds
+ *       meter_priv as its FIRST member so that an alsa_priv* can be
+ *       safely cast to meter_priv* or plugin_instance*.
  */
 
 #include "misc.h"
@@ -326,6 +329,21 @@ icon_scrolled(GtkWidget *widget, GdkEventScroll *event, alsa_priv *c)
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Initialise the ALSA volume plugin.
+ *
+ * Obtains the "meter" plugin class and runs its constructor first (this
+ * plugin subclasses meter), then opens the ALSA mixer for the configured
+ * `Card`, locates the `Control` element, reads its volume range and
+ * mute-switch capability, and starts a 500 ms poll timer.
+ *
+ * @param p This plugin instance (embeds meter_priv, which in turn embeds
+ *          plugin_instance, as its first member).
+ * @return 1 on success. Returns 0 (soft-fail; plugin is skipped) if the
+ *         "meter" plugin class is unavailable or its constructor fails,
+ *         or if the ALSA mixer cannot be opened, cannot be attached to
+ *         `Card`, or the `Control` element cannot be found.
+ */
 static int
 alsa_constructor(plugin_instance *p)
 {
@@ -406,6 +424,15 @@ alsa_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Stop polling and release ALSA and meter resources.
+ *
+ * Removes the poll timer, destroys the slider popup and its auto-hide
+ * timer if active, closes the ALSA mixer, then chains to the meter base
+ * class's destructor and releases the "meter" class reference.
+ *
+ * @param p This plugin instance.
+ */
 static void
 alsa_destructor(plugin_instance *p)
 {

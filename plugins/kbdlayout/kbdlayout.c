@@ -1,9 +1,11 @@
-/*
- * kbdlayout.c -- fbpanel keyboard layout indicator plugin.
+/**
+ * @file
+ * @brief Active keyboard layout indicator with click-to-switch.
  *
  * Displays the short name of the currently active keyboard layout
- * (e.g. "us", "de", "fr") as a text label.  Left-clicking cycles to the
- * next configured layout; right-clicking shows a menu of all layouts.
+ * (e.g. "us", "de", "fr") as a text label, polling XKB for the active
+ * group.  Left-clicking cycles to the next configured layout;
+ * right-clicking shows a menu of all layouts to jump to directly.
  *
  * Uses the XKB extension (part of libX11 -- no new dependency):
  *   XkbGetState()  -- current group index
@@ -234,6 +236,18 @@ kbdlayout_clicked(GtkWidget *widget, GdkEventButton *event,
  * Constructor / destructor
  * ------------------------------------------------------------------------- */
 
+/**
+ * @brief Load layout names and start polling the active XKB group.
+ *
+ * Reads the `Period` config key (clamped to a 100 ms minimum), verifies
+ * the XKB extension responds, loads the configured group names, creates
+ * the label, wires up left/right click handling, and starts the poll
+ * timer.
+ *
+ * @param p This plugin instance.
+ * @return 1 on success. Returns 0 (soft-fail; plugin is skipped) if the
+ *         XKB extension is not available.
+ */
 static int
 kbdlayout_constructor(plugin_instance *p)
 {
@@ -269,6 +283,11 @@ kbdlayout_constructor(plugin_instance *p)
     RET(1);
 }
 
+/**
+ * @brief Stop the poll timer and free the cached group names.
+ *
+ * @param p This plugin instance.
+ */
 static void
 kbdlayout_destructor(plugin_instance *p)
 {
