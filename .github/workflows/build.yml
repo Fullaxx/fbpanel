@@ -52,3 +52,41 @@ jobs:
 
       - name: Install (staging)
         run: make -C build install DESTDIR=/tmp/fbpanel_staging
+
+  docs:
+    name: Doxygen (build-check)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fullaxx/fbpanel_builder:bookworm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # so `git describe --tags` resolves a real PROJECT_NUMBER
+
+      - name: Install Doxygen + Graphviz
+        run: apt-get update && apt-get install -y doxygen graphviz
+
+      - name: Configure
+        run: cmake -B build
+
+      - name: Generate documentation
+        run: cmake --build build --target doc
+
+      - name: Show Doxygen warnings
+        if: always()
+        run: |
+          if [ -s build/doxygen_warnings.log ]; then
+            echo "::group::Doxygen warnings"
+            cat build/doxygen_warnings.log
+            echo "::endgroup::"
+          fi
+
+      - name: Upload generated docs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doxygen-html
+          path: build/docs/html
+          retention-days: 14
