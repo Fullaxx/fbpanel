@@ -8,3 +8,5 @@ config.h
 version
 .claude
 build/
+__pycache__/
+*.pyc

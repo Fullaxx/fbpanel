@@ -90,14 +90,14 @@ xconf *xconf_new(gchar *name, gchar *value);
 void xconf_append(xconf *parent, xconf *son);
 
 /**
- * @brief Move all children of @p son into @p parent.
+ * @brief Move all children of @p src into @p dst.
  *
- * Used when merging subtrees; after the call, @p son has no children.
+ * Used when merging subtrees; after the call, @p src has no children.
  *
- * @param parent Destination node.
- * @param son    Source node; its children are moved out.
+ * @param dst Destination node.
+ * @param src Source node; its children are moved out.
  */
-void xconf_append_sons(xconf *parent, xconf *son);
+void xconf_append_sons(xconf *dst, xconf *src);
 
 /**
  * @brief Detach a node from its parent without freeing it.
@@ -226,11 +226,11 @@ gboolean xconf_cmp(xconf *a, xconf *b);
  * node with that name and no value. Used by ::XCS to get-or-create the
  * target node before setting a value.
  *
- * @param x    Parent node.
+ * @param xc   Parent node.
  * @param name Child name to find or create.
  * @return The existing or newly created child node.
  */
-xconf *xconf_get(xconf *x, gchar *name);
+xconf *xconf_get(xconf *xc, gchar *name);
 
 /**
  * @brief Read the node's value as an integer (atoi).
@@ -242,10 +242,10 @@ void xconf_get_int(xconf *x, int *val);
 /**
  * @brief Read the node's value and map it to an int via a table.
  * @param x   May be NULL.
- * @param val Receives the matched integer from `e[i].num`. Unchanged if no match.
- * @param e   NULL-terminated xconf_enum table.
+ * @param val Receives the matched integer from `p[i].num`. Unchanged if no match.
+ * @param p   NULL-terminated xconf_enum table.
  */
-void xconf_get_enum(xconf *x, int *val, xconf_enum *e);
+void xconf_get_enum(xconf *x, int *val, xconf_enum *p);
 
 /**
  * @brief Read the node's value as a non-owning string pointer.
@@ -262,10 +262,10 @@ void xconf_get_str(xconf *x, gchar **val);
  */
 void xconf_get_strdup(xconf *x, gchar **val);
 
-/** @brief Write an int value as a string. @param x Target node. @param val Value to write. */
-void xconf_set_int(xconf *x, int val);
-/** @brief Write an enum value as its string token. @param x Target node. @param val Integer value to look up. @param e NULL-terminated xconf_enum table. */
-void xconf_set_enum(xconf *x, int val, xconf_enum *e);
+/** @brief Write an int value as a string. @param x Target node. @param i Value to write. */
+void xconf_set_int(xconf *x, int i);
+/** @brief Write an enum value as its string token. @param x Target node. @param val Integer value to look up. @param p NULL-terminated xconf_enum table. */
+void xconf_set_enum(xconf *x, int val, xconf_enum *p);
 
 /**
  * @def XCG(xc, name, var, type, extra...)

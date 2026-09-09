@@ -131,10 +131,10 @@ extern void *get_xaproperty(Window win, Atom prop, Atom type, int *nitems);
  * @brief Read a text property (e.g. `WM_NAME`) as a newly-allocated string.
  *
  * @param win  The window to query.
- * @param prop Atom identifying the text property.
+ * @param atom Atom identifying the text property.
  * @return A newly allocated string, or NULL if the property is absent.
  */
-char *get_textproperty(Window win, Atom prop);
+char *get_textproperty(Window win, Atom atom);
 
 /**
  * @brief Read a single UTF-8 string property (e.g. `_NET_WM_NAME`).

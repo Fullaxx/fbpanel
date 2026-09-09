@@ -84,10 +84,11 @@ GtkWidget *fb_image_new(gchar *iname, gchar *fname, int width, int height);
  * @param width   Target width in pixels.
  * @param height  Target height in pixels.
  * @param hicolor Highlight tint colour applied on hover/press.
- * @param name    GTK widget name assigned to the button (for theme/RC matching).
+ * @param label   Unused -- accepted but never referenced in the
+ *                implementation (verified against fbwidgets.c).
  * @return A new, floating-reference GtkWidget.
  */
 GtkWidget *fb_button_new(gchar *iname, gchar *fname, int width, int height,
-        gulong hicolor, gchar *name);
+        gulong hicolor, gchar *label);
 
 #endif /* FBWIDGETS_H */
