@@ -139,6 +139,7 @@ built locally with Doxygen — see below.
 | [LIBRARY_USAGE.md](docs/LIBRARY_USAGE.md) | Reusing fbpanel's internal APIs from plugin code |
 | [DEBUGGING.md](docs/DEBUGGING.md) | Build types, ASan/Valgrind/GDB workflows |
 | [BUGS_AND_ISSUES.md](docs/BUGS_AND_ISSUES.md) | Log of tracked (fixed) bugs with root causes |
+| [SIGNAL_CALLBACKS.md](docs/SIGNAL_CALLBACKS.md) | Canonical signal/timer/filter callback signatures (the codebase's most recurring bug class) |
 | [MENU_ICON.md](docs/MENU_ICON.md) | Menu-button icon configuration |
 | [TODO_NEW_PLUGIN_IDEAS.md](docs/TODO_NEW_PLUGIN_IDEAS.md) | Candidate future plugins |
 | [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) | Vendored/adapted files and the licenses they actually carry |

@@ -204,6 +204,9 @@ static gboolean
 expose_handler (GtkWidget *widget, GdkEventExpose *event, gpointer data)
 ```
 
+**See also:** [SIGNAL_CALLBACKS.md](SIGNAL_CALLBACKS.md) for the canonical
+signature of every signal/timer/filter callback used in this codebase.
+
 ---
 
 ## plugins/volume/volume.c
@@ -406,6 +409,9 @@ g_signal_connect(G_OBJECT(mi), "activate",
     (GCallback)send_to_workspace, tb);
 ```
 
+**See also:** [SIGNAL_CALLBACKS.md](SIGNAL_CALLBACKS.md) for the canonical
+signature of every signal/timer/filter callback used in this codebase.
+
 ---
 
 ## Summary Table
@@ -429,5 +435,5 @@ g_signal_connect(G_OBJECT(mi), "activate",
 | BUG-015  | plugins/meter/meter.c         | LOGIC ERROR     | Fixed   | `update_view` always short-circuits; icons never reload on theme change |
 | BUG-016  | plugins/volume/volume.c       | CRASH           | Fixed   | `meter_destructor` not called on `/dev/mixer` failure → use-after-free |
 | BUG-017  | plugins/taskbar/taskbar.c     | CRASH + LOGIC   | Fixed   | All "Move to workspace" items broken: numbered items use button_press_event (never fires on windowless GtkMenuItems); "All workspaces" uses activate with 3-arg callback → SIGSEGV |
-| BUG-018  | plugins/xrandr/xrandr.c       | CRASH           | Fixed   | `xrandr_update` callback signature has spurious leading `GtkWidget*` parameter; GdkScreen `"size-changed"` dispatches `(GdkScreen*, gpointer)` so `scr` and `priv` args are shifted → NULL-deref SIGSEGV at 0x9 on every resize event |
-| BUG-019  | plugins/timer/timer.c         | LOGIC ERROR     | Fixed   | Flash timer installed with `timer_tick` instead of `timer_flash`; `timer_tick` immediately returns FALSE in ALARMED state, so the flash timer self-cancels on first call and the "DONE" label never flashes |
+| BUG-018  | plugins/xrandr/xrandr.c       | CRASH           | Fixed   | `xrandr_update` callback signature has spurious leading `GtkWidget*` parameter; GdkScreen `"size-changed"` dispatches `(GdkScreen*, gpointer)` so `scr` and `priv` args are shifted → NULL-deref SIGSEGV at 0x9 on every resize event. Worked example: [SIGNAL_CALLBACKS.md](SIGNAL_CALLBACKS.md#bug-018--extra-leading-parameter-size-changed) |
+| BUG-019  | plugins/timer/timer.c         | LOGIC ERROR     | Fixed   | Flash timer installed with `timer_tick` instead of `timer_flash`; `timer_tick` immediately returns FALSE in ALARMED state, so the flash timer self-cancels on first call and the "DONE" label never flashes. Worked example: [SIGNAL_CALLBACKS.md](SIGNAL_CALLBACKS.md#bug-019--right-signature-wrong-function-g_timeout_add) |

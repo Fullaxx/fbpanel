@@ -263,6 +263,11 @@ g_signal_handlers_disconnect_by_func(G_OBJECT(fbev),
     G_CALLBACK(my_desktop_changed), priv);
 ```
 
+For the full cross-codebase reference — every `FbEv`/`FbBg`/tray signal,
+every stock GTK/GDK signal actually used here, `GdkFilterFunc`, and
+`GSourceFunc` — including the exact callback signature each one dispatches,
+see [SIGNAL_CALLBACKS.md](SIGNAL_CALLBACKS.md).
+
 ---
 
 ## Pseudo-transparent backgrounds
